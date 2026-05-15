@@ -11,7 +11,14 @@ from .ports import (
     OTPChallenge,
     OTPRequired,
 )
-from .setup_user_profile import ProfileDraft, SetupUserProfileUseCase
+from .setup_user_profile import (
+    ProfileDraft,
+    SetupUserProfileUseCase,
+    is_done,
+    is_skip,
+    parse_blocked_window,
+    parse_travel_buffer,
+)
 
 __all__ = [
     "AppointmentRequest",
@@ -28,4 +35,8 @@ __all__ = [
     "OTPRequired",
     "ProfileDraft",
     "SetupUserProfileUseCase",
+    "is_done",
+    "is_skip",
+    "parse_blocked_window",
+    "parse_travel_buffer",
 ]

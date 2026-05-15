@@ -35,6 +35,9 @@ class UserRow(Base):
     preferred_times: Mapped[str] = mapped_column(String(16), default="any")
     excluded_days_csv: Mapped[str] = mapped_column(String(128), default="")
     max_weeks_out: Mapped[int] = mapped_column(default=4)
+    travel_buffer_minutes: Mapped[int] = mapped_column(default=45)
+    # JSON-encoded list of {"days": [...], "from": "HH:MM", "to": "HH:MM"}
+    blocked_windows_json: Mapped[str] = mapped_column(Text, default="[]")
 
     google_calendar_token_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
