@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Secrets and credentials
+.env
+infrastructure/cookies/
+infrastructure/cookies/*.json
+
+# Virtual environments
+.venv
+
+# Local data
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
