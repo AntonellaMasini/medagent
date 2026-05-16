@@ -5,6 +5,7 @@ Layers below this file see only abstract ports — no Twilio / Playwright leaks.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,7 @@ from infrastructure.messaging.otp_relay import InMemoryOTPRelay
 from infrastructure.messaging.twilio_whatsapp import TwilioWhatsAppClient
 from infrastructure.persistence.crypto import CredentialCipher
 from infrastructure.persistence.database import Database
+from infrastructure.persistence.migrations import upgrade_head
 from infrastructure.persistence.sqlite_appointment_repository import (
     SQLiteAppointmentRepository,
 )
@@ -79,7 +81,9 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        await db.create_all()
+        # Run migrations on boot. For prod, run `alembic upgrade head` as a
+        # deploy step instead and remove this.
+        await asyncio.to_thread(upgrade_head, settings.database_url)
         yield
         await db.dispose()
 
