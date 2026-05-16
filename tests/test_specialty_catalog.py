@@ -220,3 +220,19 @@ class TestSearchWithFixtureCatalog:
 
     def test_returns_none_on_empty_catalog(self):
         assert SpecialtyCatalog(entries=()).search("anything") is None
+
+    def test_whitespace_input_doesnt_match_even_with_lopsided_lengths(self):
+        """Regression: a whitespace-only query normalizes to "" and would
+        score 100 against every entry via str.startswith(""). If the catalog
+        has a uniquely-short SPECIALTY, the length-gap tiebreaker would
+        return it incorrectly. The fix is to bail on empty normalized query.
+        """
+        lopsided = SpecialtyCatalog(entries=(
+            Specialty("ZZZ", SpecialtyType.SPECIALTY),  # 3 chars
+            Specialty(
+                "VERY LONG SPECIALTY NAME HERE", SpecialtyType.SPECIALTY
+            ),  # 29 chars — gap of 26, well above the 4-char threshold
+        ))
+        assert lopsided.search("   ") is None
+        assert lopsided.search("") is None
+        assert lopsided.search("\t\n  ") is None

@@ -195,6 +195,11 @@ class SpecialtyCatalog:
         if not query:
             return None
         q = _normalize(query)
+        # Whitespace-only inputs collapse to "" here, which would otherwise
+        # score 100 against every entry (str.startswith("") is True). Bail
+        # explicitly so the length-gap tiebreaker isn't load-bearing.
+        if not q:
+            return None
 
         # 1. Synonym lookup
         if (target := _SYNONYMS.get(q)) is not None:
