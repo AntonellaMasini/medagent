@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, Index, String, Text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -40,6 +40,46 @@ class UserRow(Base):
     blocked_windows_json: Mapped[str] = mapped_column(Text, default="[]")
 
     google_calendar_token_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class OnboardingDraftRow(Base):
+    """In-progress profile for a WhatsApp-onboarding user.
+
+    Holds only non-sensitive fields. NIE + password never live here — those
+    come in via the secure web form and go straight into the encrypted User
+    row.
+    """
+
+    __tablename__ = "onboarding_drafts"
+
+    phone: Mapped[str] = mapped_column(String(32), primary_key=True)
+    state: Mapped[str] = mapped_column(String(48))
+    name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    home_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    insurer: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    preferred_times: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class CredentialsTokenRow(Base):
+    """Single-use, time-limited token for the /setup/credentials web form.
+
+    The token is sent over WhatsApp as a magic link. On form submission the
+    server uses the token to look up the phone, decrypt the form fields, and
+    persist a User. Tokens are invalidated after one use.
+    """
+
+    __tablename__ = "credentials_tokens"
+    __table_args__ = (Index("ix_credentials_tokens_phone", "phone"),)
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    phone: Mapped[str] = mapped_column(String(32))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
