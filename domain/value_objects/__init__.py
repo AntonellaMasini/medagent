@@ -3,7 +3,6 @@ from .specialty import Specialty, SpecialtyMatch, normalize_specialty
 from .time_slot import (
     DEFAULT_TRAVEL_BUFFER_MINUTES,
     AvailabilityWindow,
-    BlockedWindow,
     TimePreference,
     TimeSlot,
     Weekday,
@@ -12,7 +11,6 @@ from .time_slot import (
 __all__ = [
     "Address",
     "AvailabilityWindow",
-    "BlockedWindow",
     "Coordinates",
     "DEFAULT_TRAVEL_BUFFER_MINUTES",
     "Specialty",

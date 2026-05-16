@@ -1,18 +1,16 @@
 """Free-text parsers reused across onboarding steps.
 
 Kept separate from the state machine so they're easy to unit test and reuse
-when future issues add more onboarding questions (e.g. travel buffer,
-blocked windows — fields already on AvailabilityWindow but not collected
-in the current onboarding flow).
+when future issues add more onboarding questions (e.g. travel buffer — a
+field already on AvailabilityWindow but not collected in the current
+onboarding flow).
 """
 from __future__ import annotations
 
 import re
-from datetime import time
 
 from domain.value_objects.time_slot import (
     DEFAULT_TRAVEL_BUFFER_MINUTES,
-    BlockedWindow,
     TimePreference,
     Weekday,
 )
@@ -36,14 +34,6 @@ WEEKDAY_ALIASES: dict[str, Weekday] = {
     "saturday": Weekday.SATURDAY, "sat": Weekday.SATURDAY, "sabado": Weekday.SATURDAY,
     "sunday": Weekday.SUNDAY, "sun": Weekday.SUNDAY, "domingo": Weekday.SUNDAY,
 }
-
-_BLOCKED_WINDOW_RE = re.compile(
-    r"^\s*(?P<days>[a-zA-ZáéíóúÁÉÍÓÚñÑ,\s]+?)\s+"
-    r"(?P<from_h>\d{1,2}):(?P<from_m>\d{2})\s*"
-    r"(?:-|to|a)\s*"
-    r"(?P<to_h>\d{1,2}):(?P<to_m>\d{2})\s*$",
-    re.IGNORECASE,
-)
 
 ACCENT_MAP = str.maketrans("áéíóúÁÉÍÓÚñÑ", "aeiouAEIOUnN")
 
@@ -100,39 +90,6 @@ def parse_travel_buffer(text: str) -> int | None:
     if minutes < 0 or minutes > 8 * 60:
         return None
     return minutes
-
-
-def parse_blocked_window(text: str) -> BlockedWindow | None:
-    """Parse 'monday,wednesday 15:30-17:00' style strings.
-
-    Days accept English or Spanish.
-    """
-    if not text:
-        return None
-    match = _BLOCKED_WINDOW_RE.match(text.strip())
-    if not match:
-        return None
-    days_blob = match.group("days").lower().translate(ACCENT_MAP)
-    tokens = [t.strip() for t in re.split(r"[,\s]+", days_blob) if t.strip()]
-    days: list[Weekday] = []
-    for token in tokens:
-        if token in WEEKDAY_ALIASES:
-            days.append(WEEKDAY_ALIASES[token])
-        else:
-            return None
-    if not days:
-        return None
-    try:
-        from_t = time(int(match.group("from_h")), int(match.group("from_m")))
-        to_t = time(int(match.group("to_h")), int(match.group("to_m")))
-    except ValueError:
-        return None
-    if from_t >= to_t:
-        return None
-    try:
-        return BlockedWindow(days=frozenset(days), from_time=from_t, to_time=to_t)
-    except ValueError:
-        return None
 
 
 def parse_excluded_days(text: str) -> frozenset[Weekday] | None:
