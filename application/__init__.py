@@ -10,7 +10,6 @@ from .onboarding import (
 from .parsers import (
     is_done,
     is_skip,
-    parse_blocked_window,
     parse_excluded_days,
     parse_insurer,
     parse_preferred_time,
@@ -64,7 +63,6 @@ __all__ = [
     "TokenValidation",
     "is_done",
     "is_skip",
-    "parse_blocked_window",
     "parse_excluded_days",
     "parse_insurer",
     "parse_preferred_time",

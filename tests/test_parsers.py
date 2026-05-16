@@ -1,12 +1,9 @@
 """Unit tests for the free-text parsers used across onboarding steps."""
 from __future__ import annotations
 
-from datetime import time
-
 from application.parsers import (
     is_done,
     is_skip,
-    parse_blocked_window,
     parse_excluded_days,
     parse_insurer,
     parse_preferred_time,
@@ -14,7 +11,6 @@ from application.parsers import (
 )
 from domain.value_objects.time_slot import (
     DEFAULT_TRAVEL_BUFFER_MINUTES,
-    BlockedWindow,
     TimePreference,
     Weekday,
 )
@@ -77,33 +73,6 @@ class TestParseTravelBuffer:
 
     def test_unreasonable_value(self):
         assert parse_travel_buffer("600 min") is None  # > 8h
-
-
-class TestParseBlockedWindow:
-    def test_single_day(self):
-        bw = parse_blocked_window("monday 15:30-17:00")
-        assert bw == BlockedWindow(
-            days=frozenset({Weekday.MONDAY}),
-            from_time=time(15, 30),
-            to_time=time(17, 0),
-        )
-
-    def test_multi_day(self):
-        bw = parse_blocked_window("monday,wednesday 15:30-17:00")
-        assert bw is not None
-        assert bw.days == frozenset({Weekday.MONDAY, Weekday.WEDNESDAY})
-
-    def test_spanish(self):
-        bw = parse_blocked_window("lunes,miércoles 15:30-17:00")
-        assert bw is not None
-        assert bw.days == frozenset({Weekday.MONDAY, Weekday.WEDNESDAY})
-
-    def test_rejects_inverted(self):
-        assert parse_blocked_window("monday 17:00-15:30") is None
-
-    def test_rejects_garbage(self):
-        assert parse_blocked_window("garbage") is None
-        assert parse_blocked_window("notaday 15:30-17:00") is None
 
 
 class TestParseExcludedDays:

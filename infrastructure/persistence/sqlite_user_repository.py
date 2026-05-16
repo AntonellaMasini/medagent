@@ -1,9 +1,6 @@
 """SQLite implementation of UserRepository with credential encryption."""
 from __future__ import annotations
 
-import json
-from datetime import time
-
 from sqlalchemy import delete, select
 
 from domain.entities.user import Insurer, InsurerCredentials, User
@@ -11,7 +8,6 @@ from domain.repositories.user_repository import UserRepository
 from domain.value_objects.address import Address, Coordinates
 from domain.value_objects.time_slot import (
     AvailabilityWindow,
-    BlockedWindow,
     TimePreference,
     Weekday,
 )
@@ -71,9 +67,6 @@ class SQLiteUserRepository(UserRepository):
         )
         row.max_weeks_out = user.availability.max_weeks_out
         row.travel_buffer_minutes = user.availability.travel_buffer_minutes
-        row.blocked_windows_json = json.dumps(
-            [_blocked_window_to_dict(w) for w in user.availability.blocked_windows]
-        )
         row.google_calendar_token_enc = (
             self._cipher.encrypt(user.google_calendar_token)
             if user.google_calendar_token
@@ -94,16 +87,11 @@ class SQLiteUserRepository(UserRepository):
         excluded = frozenset(
             Weekday(d) for d in row.excluded_days_csv.split(",") if d
         )
-        blocked_windows = tuple(
-            _blocked_window_from_dict(item)
-            for item in json.loads(row.blocked_windows_json or "[]")
-        )
         availability = AvailabilityWindow(
             preferred=TimePreference(row.preferred_times),
             excluded_days=excluded,
             max_weeks_out=row.max_weeks_out,
             travel_buffer_minutes=row.travel_buffer_minutes,
-            blocked_windows=blocked_windows,
         )
         token = (
             self._cipher.decrypt(row.google_calendar_token_enc)
@@ -123,24 +111,3 @@ class SQLiteUserRepository(UserRepository):
             google_calendar_token=token,
             created_at=row.created_at,
         )
-
-
-def _blocked_window_to_dict(window: BlockedWindow) -> dict:
-    return {
-        "days": sorted(d.value for d in window.days),
-        "from": window.from_time.strftime("%H:%M"),
-        "to": window.to_time.strftime("%H:%M"),
-    }
-
-
-def _blocked_window_from_dict(data: dict) -> BlockedWindow:
-    return BlockedWindow(
-        days=frozenset(Weekday(d) for d in data["days"]),
-        from_time=_parse_hhmm(data["from"]),
-        to_time=_parse_hhmm(data["to"]),
-    )
-
-
-def _parse_hhmm(text: str) -> time:
-    h, m = text.split(":")
-    return time(int(h), int(m))

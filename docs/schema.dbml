@@ -64,7 +64,6 @@ Table users {
   excluded_days_csv         varchar(128) [not null, default: '', note: 'e.g. "saturday,sunday"']
   max_weeks_out             int          [not null, default: 4]
   travel_buffer_minutes     int          [not null, default: 45]
-  blocked_windows_json      text         [not null, default: '[]', note: 'JSON: [{days, from, to}, ...]']
 
   // External integrations
   google_calendar_token_enc text         [note: 'encrypted OAuth token, nullable']
