@@ -39,3 +39,7 @@ class InMemoryOTPRelay(BaseOTPRelay):
             self._futures[user_phone] = fut
         fut.set_result(code)
         logger.info("OTP code received for %s", user_phone)
+
+    def is_waiting(self, user_phone: str) -> bool:
+        fut = self._futures.get(user_phone)
+        return fut is not None and not fut.done()

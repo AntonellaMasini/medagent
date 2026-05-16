@@ -13,7 +13,8 @@ from fastapi import FastAPI
 
 from application.book_appointment import BookAppointmentUseCase
 from application.handle_otp import HandleOTPUseCase
-from application.setup_user_profile import SetupUserProfileUseCase
+from application.onboarding import OnboardingStateMachine
+from application.setup_credentials import SetupCredentialsUseCase
 from config import get_settings
 from infrastructure.messaging.otp_relay import InMemoryOTPRelay
 from infrastructure.messaging.twilio_whatsapp import TwilioWhatsAppClient
@@ -23,10 +24,17 @@ from infrastructure.persistence.migrations import upgrade_head
 from infrastructure.persistence.sqlite_appointment_repository import (
     SQLiteAppointmentRepository,
 )
+from infrastructure.persistence.sqlite_credentials_token_repository import (
+    SQLiteCredentialsTokenRepository,
+)
+from infrastructure.persistence.sqlite_onboarding_draft_repository import (
+    SQLiteOnboardingDraftRepository,
+)
 from infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
 from infrastructure.scrapers.cigna_scraper import CignaScraper
 from infrastructure.voice.twilio_voice_caller import StubVoiceCaller
 from interfaces.api.health import build_health_router
+from interfaces.api.setup_credentials import build_setup_credentials_router
 from interfaces.webhooks.whatsapp_webhook import build_whatsapp_router
 
 
@@ -47,6 +55,8 @@ def create_app() -> FastAPI:
 
     user_repo = SQLiteUserRepository(db, cipher) if cipher else None
     appointment_repo = SQLiteAppointmentRepository(db)
+    draft_repo = SQLiteOnboardingDraftRepository(db)
+    token_repo = SQLiteCredentialsTokenRepository(db)
 
     whatsapp = TwilioWhatsAppClient(
         account_sid=settings.twilio_account_sid,
@@ -72,33 +82,49 @@ def create_app() -> FastAPI:
         otp_relay=otp_relay,
         otp_timeout_seconds=settings.otp_wait_timeout_seconds,
     )
-    setup_use_case = (
-        SetupUserProfileUseCase(user_repo=user_repo, whatsapp=whatsapp)
+    handle_otp = HandleOTPUseCase(otp_relay=otp_relay)
+    setup_credentials = (
+        SetupCredentialsUseCase(
+            token_repo=token_repo,
+            draft_repo=draft_repo,
+            user_repo=user_repo,
+            whatsapp=whatsapp,
+            base_url=settings.base_url,
+            token_ttl_minutes=settings.credentials_token_ttl_minutes,
+        )
         if user_repo
         else None
     )
-    handle_otp = HandleOTPUseCase(otp_relay=otp_relay)
+    onboarding = (
+        OnboardingStateMachine(
+            draft_repo=draft_repo,
+            whatsapp=whatsapp,
+            credentials_link=setup_credentials,
+        )
+        if setup_credentials
+        else None
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Run migrations on boot. For prod, run `alembic upgrade head` as a
-        # deploy step instead and remove this.
         await asyncio.to_thread(upgrade_head, settings.database_url)
         yield
         await db.dispose()
 
     app = FastAPI(title="MedAgent", version="0.1.0", lifespan=lifespan)
     app.include_router(build_health_router())
-    if user_repo and setup_use_case:
+    if user_repo and onboarding and setup_credentials:
         app.include_router(
             build_whatsapp_router(
                 user_repo=user_repo,
                 book_use_case=book_use_case,
-                setup_use_case=setup_use_case,
+                onboarding=onboarding,
                 handle_otp=handle_otp,
+                otp_relay=otp_relay,
                 whatsapp=whatsapp,
             )
         )
+        app.include_router(build_setup_credentials_router(setup_credentials))
     return app
 
 
