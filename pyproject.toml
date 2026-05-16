@@ -23,3 +23,22 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "ruff>=0.15.13",
 ]
+
+[tool.ruff]
+target-version = "py311"
+exclude = [".env.example"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes (unused imports, undefined names)
+    "I",      # isort (import ordering)
+    "B",      # flake8-bugbear (common bugs)
+    "UP",     # pyupgrade (modern syntax for py311+)
+]
+ignore = [
+    "E501",   # line too long (delegate to formatter if used)
+]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -3,7 +3,7 @@
 WhatsApp-driven AI agent that books private health insurance appointments in Spain.
 User sends *"book me a psychologist"* → agent logs into the insurer's portal, finds nearby doctors, calls clinics until a slot is confirmed, and replies with the booking.
 
-First insurer adapter: **Cigna Spain**.
+Insurer adapters: **Cigna Spain**, **Adeslas**.
 
 ## Status
 

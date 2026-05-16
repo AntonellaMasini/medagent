@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     # --- Cigna scraper ---
     cigna_login_url: str = Field(default="https://clientes.cigna.es")
     cigna_doctors_url: str = Field(default="https://clientes.cigna.es/cp/cuadro-medico")
+
+    # --- Adeslas scraper ---
+    adeslas_login_url: str = Field(default="https://www.segurcaixaadeslas.es")
+    adeslas_doctors_url: str = Field(default="https://www.segurcaixaadeslas.es/cuadromedico")
+
+    # --- Playwright ---
     playwright_headless: bool = Field(default=True)
     playwright_timeout_ms: int = Field(default=30000)
 
