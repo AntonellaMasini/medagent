@@ -1,0 +1,143 @@
+// MedAgent database schema — DBML
+//
+// Source of truth: infrastructure/persistence/database.py + alembic/versions/*
+// This file is documentation: regenerate (or hand-update) whenever a migration
+// changes the schema. Paste into https://dbdiagram.io/ to view the diagram.
+//
+// Note on Refs: SQLite tables below do NOT currently declare ForeignKey
+// constraints in SQLAlchemy. The `Ref:` lines describe the *logical* link
+// (the convention that `appointments.user_phone` matches `users.phone`) so
+// the diagram renders relationships. When we move to Postgres and add real
+// FK constraints, these become enforced.
+
+Project medagent {
+  database_type: 'SQLite (→ Postgres)'
+  Note: 'WhatsApp-driven appointment-booking agent for Spanish private health insurers.'
+}
+
+// ============================================================
+// Enums — values stored as VARCHAR; listed here for documentation.
+// ============================================================
+
+Enum insurer {
+  cigna
+  adeslas
+  sanitas
+}
+
+Enum appointment_status {
+  pending   [note: 'search in progress']
+  confirmed [note: 'clinic confirmed slot']
+  failed    [note: 'no slot found across all clinics']
+  cancelled
+}
+
+Enum time_preference {
+  mornings
+  afternoons
+  any
+}
+
+// ============================================================
+// Tables
+// ============================================================
+
+Table users {
+  phone                     varchar(32)  [pk, note: 'E.164, e.g. +34612345678']
+  name                      varchar(256) [not null]
+
+  // Home address (denormalized — no separate addresses table)
+  home_address_raw          text         [not null]
+  home_city                 varchar(128)
+  home_postal_code          varchar(16)
+  home_country              varchar(8)   [not null, default: 'ES']
+  home_lat                  float
+  home_lng                  float
+
+  // Insurer login (passwords encrypted at rest with Fernet)
+  insurer                   insurer      [not null]
+  insurer_username_enc      text         [not null, note: 'encrypted: NIE/NIF/passport']
+  insurer_password_enc      text         [not null, note: 'encrypted']
+
+  // Availability preferences (flattened onto user row)
+  preferred_times           time_preference [not null, default: 'any']
+  excluded_days_csv         varchar(128) [not null, default: '', note: 'e.g. "saturday,sunday"']
+  max_weeks_out             int          [not null, default: 4]
+  travel_buffer_minutes     int          [not null, default: 45]
+  blocked_windows_json      text         [not null, default: '[]', note: 'JSON: [{days, from, to}, ...]']
+
+  // External integrations
+  google_calendar_token_enc text         [note: 'encrypted OAuth token, nullable']
+
+  created_at                datetime     [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'One row per registered user. phone is the natural key — also referenced by appointments, drafts, and tokens.'
+}
+
+Table onboarding_drafts {
+  phone           varchar(32)  [pk, note: 'matches users.phone if/when promoted']
+  state           varchar(48)  [not null, note: 'FSM state, e.g. AWAITING_NAME']
+
+  // Captured fields so far (all optional until that step is complete)
+  name            varchar(256)
+  home_address    text
+  insurer         insurer
+  preferred_times time_preference
+
+  started_at      datetime     [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at      datetime     [not null, default: `CURRENT_TIMESTAMP`, note: 'auto-bumped on every write']
+
+  Note: 'In-progress profile during WhatsApp onboarding. NIE + password NEVER live here — those arrive via the secure /setup/credentials web form and go straight into users (encrypted).'
+}
+
+Table credentials_tokens {
+  token       varchar(64)  [pk, note: 'random url-safe token']
+  phone       varchar(32)  [not null]
+  expires_at  datetime     [not null]
+  used_at     datetime     [note: 'set on form submission; null = unused']
+  created_at  datetime     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    phone [name: 'ix_credentials_tokens_phone']
+  }
+
+  Note: 'Single-use magic-link token for the /setup/credentials form. Invalidated after one use (used_at != null).'
+}
+
+Table appointments {
+  id                     varchar(64)  [pk, note: 'uuid4']
+  user_phone             varchar(32)  [not null]
+
+  // Doctor snapshot — denormalized on purpose so the appointment record
+  // survives doctor changes (address moves, name updates, etc.)
+  doctor_id              varchar(128) [not null, note: 'stable id within insurer']
+  doctor_name            varchar(256) [not null]
+  doctor_specialty       varchar(64)  [not null]
+  doctor_clinic_name     varchar(256) [not null]
+  doctor_address         text         [not null]
+  doctor_phone           varchar(32)  [not null]
+  doctor_distance_m      int
+
+  // Booked slot
+  slot_start             datetime     [not null]
+  slot_duration_minutes  int          [not null, default: 30]
+
+  status                 appointment_status [not null]
+  notes                  text
+  created_at             datetime     [not null, default: `CURRENT_TIMESTAMP`]
+  confirmed_at           datetime
+
+  indexes {
+    user_phone [name: 'ix_appointments_user_phone']
+  }
+
+  Note: 'Booking attempt and its outcome. Doctor fields are a snapshot at booking time.'
+}
+
+// ============================================================
+// Relationships — logical only (no FK constraints in SQLite yet)
+// ============================================================
+
+Ref: appointments.user_phone        > users.phone   // many appointments per user
+Ref: onboarding_drafts.phone        - users.phone   // 0..1 draft per user (same PK once promoted)
+Ref: credentials_tokens.phone       > users.phone   // a phone may have multiple tokens over time

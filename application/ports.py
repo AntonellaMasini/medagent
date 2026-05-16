@@ -112,3 +112,11 @@ class BaseOTPRelay(ABC):
     @abstractmethod
     async def submit_code(self, user_phone: str, code: str) -> None:
         """Called by the webhook handler when the user replies with a code."""
+
+    @abstractmethod
+    def is_waiting(self, user_phone: str) -> bool:
+        """Is something currently awaiting an OTP for this phone?
+
+        Used by the webhook to decide whether a digit-string inbound message
+        is an OTP reply or just regular content.
+        """

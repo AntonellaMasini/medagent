@@ -40,8 +40,24 @@ cp .env.example .env
 # fill in Twilio creds, generate SECRET_KEY:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-# Run
+# Run (migrations run automatically on boot in dev)
 uv run uvicorn main:app --reload
+```
+
+## Database migrations
+
+Alembic owns the schema. The FastAPI lifespan runs `alembic upgrade head` on boot for dev convenience; in production, run it as a deploy step and drop the lifespan call.
+
+```bash
+# Apply pending migrations manually
+uv run alembic upgrade head
+
+# After changing a SQLAlchemy model in infrastructure/persistence/database.py:
+uv run alembic revision --autogenerate -m "what changed"
+# Review the generated file in alembic/versions/ before committing.
+
+# Roll back the last migration
+uv run alembic downgrade -1
 ```
 
 Then expose with `ngrok http 8000` and point your Twilio WhatsApp sandbox webhook at `https://<ngrok-id>.ngrok-free.app/webhooks/whatsapp`.

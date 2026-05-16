@@ -44,6 +44,7 @@ class Settings(BaseSettings):
 
     # --- Behavior ---
     otp_wait_timeout_seconds: int = Field(default=300)
+    credentials_token_ttl_minutes: int = Field(default=10)
     log_level: str = Field(default="INFO")
 
 

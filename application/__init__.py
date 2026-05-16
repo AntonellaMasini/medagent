@@ -1,5 +1,21 @@
 from .book_appointment import AppointmentRequest, BookAppointmentUseCase
 from .handle_otp import HandleOTPUseCase
+from .onboarding import (
+    CredentialsLinkIssuer,
+    OnboardingDraft,
+    OnboardingDraftRepository,
+    OnboardingState,
+    OnboardingStateMachine,
+)
+from .parsers import (
+    is_done,
+    is_skip,
+    parse_blocked_window,
+    parse_excluded_days,
+    parse_insurer,
+    parse_preferred_time,
+    parse_travel_buffer,
+)
 from .ports import (
     BaseCalendarService,
     BaseGeocodingService,
@@ -11,7 +27,15 @@ from .ports import (
     OTPChallenge,
     OTPRequired,
 )
-from .setup_user_profile import ProfileDraft, SetupUserProfileUseCase
+from .setup_credentials import (
+    CredentialsToken,
+    CredentialsTokenRepository,
+    SetupCredentialsUseCase,
+    SubmissionOutcome,
+    SubmissionResult,
+    TokenStatus,
+    TokenValidation,
+)
 
 __all__ = [
     "AppointmentRequest",
@@ -23,9 +47,26 @@ __all__ = [
     "BaseVoiceCaller",
     "BookAppointmentUseCase",
     "CallOutcome",
+    "CredentialsLinkIssuer",
+    "CredentialsToken",
+    "CredentialsTokenRepository",
     "HandleOTPUseCase",
     "OTPChallenge",
     "OTPRequired",
-    "ProfileDraft",
-    "SetupUserProfileUseCase",
+    "OnboardingDraft",
+    "OnboardingDraftRepository",
+    "OnboardingState",
+    "OnboardingStateMachine",
+    "SetupCredentialsUseCase",
+    "SubmissionOutcome",
+    "SubmissionResult",
+    "TokenStatus",
+    "TokenValidation",
+    "is_done",
+    "is_skip",
+    "parse_blocked_window",
+    "parse_excluded_days",
+    "parse_insurer",
+    "parse_preferred_time",
+    "parse_travel_buffer",
 ]
