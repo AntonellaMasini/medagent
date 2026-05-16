@@ -14,6 +14,7 @@ from application.book_appointment import BookAppointmentUseCase
 from application.handle_otp import HandleOTPUseCase
 from application.setup_user_profile import SetupUserProfileUseCase
 from config import get_settings
+from domain.entities.user import Insurer
 from infrastructure.messaging.otp_relay import InMemoryOTPRelay
 from infrastructure.messaging.twilio_whatsapp import TwilioWhatsAppClient
 from infrastructure.persistence.crypto import CredentialCipher
@@ -22,7 +23,9 @@ from infrastructure.persistence.sqlite_appointment_repository import (
     SQLiteAppointmentRepository,
 )
 from infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
+from infrastructure.scrapers.adeslas_scraper import AdeslasScraper
 from infrastructure.scrapers.cigna_scraper import CignaScraper
+from infrastructure.scrapers.multi_scraper import MultiInsurerScraper
 from infrastructure.voice.twilio_voice_caller import StubVoiceCaller
 from interfaces.api.health import build_health_router
 from interfaces.webhooks.whatsapp_webhook import build_whatsapp_router
@@ -52,12 +55,25 @@ def create_app() -> FastAPI:
         from_number=settings.twilio_whatsapp_number,
     )
     otp_relay = InMemoryOTPRelay()
-    scraper = CignaScraper(
+    cigna_scraper = CignaScraper(
         cookies_dir=settings.cookies_dir,
         login_url=settings.cigna_login_url,
         doctors_url=settings.cigna_doctors_url,
         headless=settings.playwright_headless,
         timeout_ms=settings.playwright_timeout_ms,
+    )
+    adeslas_scraper = AdeslasScraper(
+        cookies_dir=settings.cookies_dir,
+        login_url=settings.adeslas_login_url,
+        doctors_url=settings.adeslas_doctors_url,
+        headless=settings.playwright_headless,
+        timeout_ms=settings.playwright_timeout_ms,
+    )
+    scraper = MultiInsurerScraper(
+        {
+            Insurer.CIGNA: cigna_scraper,
+            Insurer.ADESLAS: adeslas_scraper,
+        }
     )
     voice_caller = StubVoiceCaller()
 
