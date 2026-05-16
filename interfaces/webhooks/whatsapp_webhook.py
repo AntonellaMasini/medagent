@@ -52,9 +52,18 @@ def build_whatsapp_router(
         body = (Body or "").strip()
         logger.info("WhatsApp inbound from=%s body=%r", phone, body)
 
-        # 1) OTP reply during an active scraper login attempt.
+        # 1) Active scraper login waiting on OTP. Submit if the body carries
+        #    a code; otherwise nudge so we don't silently drop the message,
+        #    and don't fall through — falling through during an active wait
+        #    could spawn a second scraper session for the same user.
         if otp_relay.is_waiting(phone):
-            await handle_otp.execute(phone, body)
+            if not await handle_otp.execute(phone, body):
+                background.add_task(
+                    whatsapp.send_text,
+                    phone,
+                    "Still waiting for your Cigna code — please reply with "
+                    "just the digits from the SMS.",
+                )
             return _twiml()
 
         # 2) Registered user → booking flow.
