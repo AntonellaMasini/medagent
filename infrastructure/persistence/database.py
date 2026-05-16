@@ -88,7 +88,10 @@ class AppointmentRow(Base):
     user_phone: Mapped[str] = mapped_column(String(32), index=True)
     doctor_id: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(256))
-    doctor_specialty: Mapped[str] = mapped_column(String(64))
+    # Spanish display name from Cigna's specialty catalog (e.g. "DERMATOLOGÍA"
+    # or "PSICOLOGIA"). Snapshot at booking time — survives Cigna renames as
+    # a historical record. Looked up at read time via SpecialtyCatalog.find_by_name.
+    doctor_specialty_name: Mapped[str] = mapped_column(String(128))
     doctor_clinic_name: Mapped[str] = mapped_column(String(256))
     doctor_address: Mapped[str] = mapped_column(Text)
     doctor_phone: Mapped[str] = mapped_column(String(32))

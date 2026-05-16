@@ -7,7 +7,11 @@ from domain.entities.appointment import Appointment, AppointmentStatus
 from domain.entities.doctor import Doctor
 from domain.repositories.appointment_repository import AppointmentRepository
 from domain.value_objects.address import Address
-from domain.value_objects.specialty import Specialty
+from domain.value_objects.specialty import (
+    Specialty,
+    SpecialtyType,
+    get_catalog,
+)
 from domain.value_objects.time_slot import TimeSlot
 from infrastructure.persistence.database import AppointmentRow, Database
 
@@ -43,7 +47,7 @@ class SQLiteAppointmentRepository(AppointmentRepository):
         row.user_phone = appt.user_phone
         row.doctor_id = appt.doctor.id
         row.doctor_name = appt.doctor.name
-        row.doctor_specialty = appt.doctor.specialty.value
+        row.doctor_specialty_name = appt.doctor.specialty.name
         row.doctor_clinic_name = appt.doctor.clinic_name
         row.doctor_address = appt.doctor.address.raw
         row.doctor_phone = appt.doctor.phone
@@ -56,10 +60,16 @@ class SQLiteAppointmentRepository(AppointmentRepository):
         row.confirmed_at = appt.confirmed_at
 
     def _row_to_appt(self, row: AppointmentRow) -> Appointment:
+        # Resolve the snapshot name back to a live Specialty. If Cigna has
+        # removed/renamed the specialty since booking, synthesize a Specialty
+        # from the stored name so the record still renders rather than crashing.
+        specialty = get_catalog().find_by_name(row.doctor_specialty_name) or Specialty(
+            name=row.doctor_specialty_name, type=SpecialtyType.SPECIALTY
+        )
         doctor = Doctor(
             id=row.doctor_id,
             name=row.doctor_name,
-            specialty=Specialty(row.doctor_specialty),
+            specialty=specialty,
             clinic_name=row.doctor_clinic_name,
             address=Address(raw=row.doctor_address),
             phone=row.doctor_phone,

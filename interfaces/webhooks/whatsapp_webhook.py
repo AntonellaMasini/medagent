@@ -69,16 +69,16 @@ def build_whatsapp_router(
         # 2) Registered user → booking flow.
         user = await user_repo.get_by_phone(phone)
         if user is not None:
-            match = normalize_specialty(body) or _extract_specialty(body)
-            if match is None:
+            specialty = normalize_specialty(body) or _extract_specialty(body)
+            if specialty is None:
                 background.add_task(
                     whatsapp.send_text,
                     phone,
-                    "I didn't recognize a specialty. Try: 'book a psychologist', "
-                    "'cita con dermatólogo', etc.",
+                    "No reconocí la especialidad. Prueba: 'cita con psicólogo', "
+                    "'busco dermatólogo', etc.",
                 )
                 return _twiml()
-            req = AppointmentRequest(specialty=match.specialty, raw_query=body)
+            req = AppointmentRequest(specialty=specialty, raw_query=body)
             background.add_task(book_use_case.execute, user, req)
             return _twiml()
 

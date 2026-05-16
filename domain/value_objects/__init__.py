@@ -1,5 +1,11 @@
 from .address import Address, Coordinates
-from .specialty import Specialty, SpecialtyMatch, normalize_specialty
+from .specialty import (
+    Specialty,
+    SpecialtyCatalog,
+    SpecialtyType,
+    get_catalog,
+    normalize_specialty,
+)
 from .time_slot import (
     DEFAULT_TRAVEL_BUFFER_MINUTES,
     AvailabilityWindow,
@@ -14,9 +20,11 @@ __all__ = [
     "Coordinates",
     "DEFAULT_TRAVEL_BUFFER_MINUTES",
     "Specialty",
-    "SpecialtyMatch",
+    "SpecialtyCatalog",
+    "SpecialtyType",
     "TimePreference",
     "TimeSlot",
     "Weekday",
+    "get_catalog",
     "normalize_specialty",
 ]

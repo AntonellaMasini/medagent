@@ -209,12 +209,13 @@ class TestNoOTPWait:
         client, _, _, _, onboarding, book = _make_app(
             waiting=False, registered=True
         )
-        r = _post(client, "book me a psychologist")
+        # Spanish input — English aliases are deferred to the LLM matcher (#15)
+        r = _post(client, "necesito un psicólogo")
         assert r.status_code == 200
         assert len(book.calls) == 1
         user, req = book.calls[0]
         assert user.phone == "+34600000001"
-        assert req.specialty.value == "PSICOLOGIA"
+        assert req.specialty.name == "PSICOLOGIA"
         assert onboarding.calls == []
 
     def test_registered_user_no_specialty_gets_hint(self):
@@ -222,7 +223,7 @@ class TestNoOTPWait:
         r = _post(client, "hello there")
         assert r.status_code == 200
         assert book.calls == []
-        assert any("specialty" in b.lower() for _, b in wa.sent)
+        assert any("especialidad" in b.lower() for _, b in wa.sent)
 
     def test_new_user_routes_to_onboarding(self):
         client, _, _, _, onboarding, book = _make_app(

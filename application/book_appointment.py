@@ -45,7 +45,7 @@ class BookAppointmentUseCase:
     async def execute(self, user: User, request: AppointmentRequest) -> Appointment | None:
         await self._whatsapp.send_text(
             user.phone,
-            f"Looking for {request.specialty.value.lower()} appointments near you...",
+            f"Looking for {request.specialty.name.lower()} appointments near you...",
         )
 
         doctors = await self._find_doctors_handling_otp(user, request)
