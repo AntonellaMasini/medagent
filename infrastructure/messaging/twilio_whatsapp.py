@@ -77,7 +77,7 @@ def _format_confirmation(appt: Appointment) -> str:
     return (
         f"Appointment booked.\n"
         f"Doctor: {appt.doctor.name}\n"
-        f"Specialty: {appt.doctor.specialty.value.title()}\n"
+        f"Specialty: {appt.doctor.specialty.name.title()}\n"
         f"When: {when}\n"
         f"Where: {appt.doctor.clinic_name}, {appt.doctor.address.raw}\n"
         f"Phone: {appt.doctor.phone}"

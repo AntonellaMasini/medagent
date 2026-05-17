@@ -1,0 +1,1360 @@
+[
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E003",
+    "language_ES": "ALERGOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E003S00001",
+    "language_ES": "ALERGOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E004",
+    "language_ES": "ANÁLISIS CLÍNICOS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E005",
+    "language_ES": "ANATOMÍA PATOLÓGICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E006",
+    "language_ES": "ANESTESIOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A335",
+    "language_ES": "ANGIO-RMN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A320",
+    "language_ES": "ANGIO-TAC",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A060",
+    "language_ES": "ANGIOFLUORESCEINGRAFÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E007",
+    "language_ES": "ANGIOLOGÍA Y CIRUGÍA VASCULAR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E008",
+    "language_ES": "APARATO DIGESTIVO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E008S00004",
+    "language_ES": "APARATO DIGESTIVO INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A369",
+    "language_ES": "ARTRO-RMN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "",
+    "language_ES": "BAG. BIOPSIA AGUJA GRUESA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A362",
+    "language_ES": "BIOPSIA PROSTÁTICA DE FUSIÓN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A063",
+    "language_ES": "BRONCOSCOPIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A409",
+    "language_ES": "CAPSULA ENDOSCOPICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E009",
+    "language_ES": "CARDIOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E009S00019",
+    "language_ES": "CARDIOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E009S00006",
+    "language_ES": "CARDIOLOGÍA INTERVENCIONISTA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A323",
+    "language_ES": "CIRUGÍA BARIÁTRICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E010",
+    "language_ES": "CIRUGÍA CARDIOVASCULAR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00029",
+    "language_ES": "CIRUGÍA DE LA CADERA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00021",
+    "language_ES": "CIRUGÍA DE LA COLUMNA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00024",
+    "language_ES": "CIRUGÍA DE LA MANO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A368",
+    "language_ES": "CIRUGÍA DE MOHS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00016",
+    "language_ES": "CIRUGÍA DE PIE Y TOBILLO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00011",
+    "language_ES": "CIRUGÍA DE RODILLA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00013",
+    "language_ES": "CIRUGÍA DEL HOMBRO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E011",
+    "language_ES": "CIRUGÍA GENERAL Y DEL APARATO DIGESTIVO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E012",
+    "language_ES": "CIRUGÍA MAXILOFACIAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "CIRUGÍA MAXILOFACIAL DENTAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E012S00025",
+    "language_ES": "CIRUGÍA MAXILOFACIAL INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "CIRUGIA ORAL IMPLANTOLOGIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E013",
+    "language_ES": "CIRUGÍA PEDIÁTRICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E014",
+    "language_ES": "CIRUGÍA PLÁSTICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A405",
+    "language_ES": "CIRUGIA PROFILACTICA DE LA MAMA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A352",
+    "language_ES": "CIRUGÍA ROBÓTICA DA VINCI ABDOMINAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A351",
+    "language_ES": "CIRUGÍA ROBÓTICA DA VINCI GINECOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A350",
+    "language_ES": "CIRUGIA ROBOTICA DA VINCI PROSTÁTICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A415",
+    "language_ES": "CIRUGIA ROBOTICA DA VINCI RENAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E015",
+    "language_ES": "CIRUGÍA TORÁCICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A070",
+    "language_ES": "COLONOSCOPIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A337",
+    "language_ES": "CORONARIOGRAFIA POR TAC",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A373",
+    "language_ES": "COVID 19 PCR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A098",
+    "language_ES": "DENSITOMETRÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E016",
+    "language_ES": "DERMATOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E016S00020",
+    "language_ES": "DERMATOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A326",
+    "language_ES": "DERMATOSCOPIA DIGITAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E017",
+    "language_ES": "DIAGNÓSTICO POR IMAGEN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A367",
+    "language_ES": "DRENAJE LINFÁTICO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A213",
+    "language_ES": "ECOCARDIOGRAMA DOPPLER",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A084",
+    "language_ES": "ECODOPPLER VASCULAR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A140",
+    "language_ES": "ECOGRAFÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A314",
+    "language_ES": "ECOGRAFÍA 20 SEMANAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A313",
+    "language_ES": "ECOGRAFÍA 3D-4D",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E018",
+    "language_ES": "ENDOCRINOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E018S00033",
+    "language_ES": "ENDOCRINOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "ENDODONCIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E050",
+    "language_ES": "ENFERMERÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A376",
+    "language_ES": "ENUCLEACION PROSTATICA POR LASER",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A056",
+    "language_ES": "ERGOMETRÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "ESTÉTICA MAXILOFACIAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E032S00002",
+    "language_ES": "ESTRABISMO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A225",
+    "language_ES": "ESTUDIO PREOPERATORIO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A224",
+    "language_ES": "ESTUDIO URODINÁMICO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A370",
+    "language_ES": "FIBROSCAN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E051",
+    "language_ES": "FISIOTERAPIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E051S00030",
+    "language_ES": "FISIOTERAPIA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A366",
+    "language_ES": "FISIOTERAPIA RESPIRATORIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E002S00015",
+    "language_ES": "GASTROENTEROLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A057",
+    "language_ES": "GASTROSCOPIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E020",
+    "language_ES": "GERIATRÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E021",
+    "language_ES": "HEMATOLOGÍA Y HEMOTERAPIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A410",
+    "language_ES": "HIFU PROSTATA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A085",
+    "language_ES": "HISTEROSALPINGOGRAFÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A071",
+    "language_ES": "HOLTER",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E047",
+    "language_ES": "HOSPITAL DE DÍA PSIQUIÁTRICO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E207",
+    "language_ES": "HOSPITAL PSIQUIÁTRICO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E045",
+    "language_ES": "HOSPITALIZACIÓN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A321",
+    "language_ES": "LÁSER VARICES. ENDOLASER",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A412",
+    "language_ES": "LITOTRICIA ENDOURETERAL LASER",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A099",
+    "language_ES": "LITOTRICIA EXTRACORPÓREA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E058",
+    "language_ES": "LOGOPEDIA Y FONIATRÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A086",
+    "language_ES": "MAMOGRAFÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A127",
+    "language_ES": "MANOMETRÍA Y PH-METRÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E052",
+    "language_ES": "MATRONA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E001",
+    "language_ES": "MEDICINA GENERAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E070",
+    "language_ES": "MEDICINA HIPERBÁRICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E024",
+    "language_ES": "MEDICINA INTERNA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E025",
+    "language_ES": "MEDICINA NUCLEAR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E026",
+    "language_ES": "NEFROLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E026S00027",
+    "language_ES": "NEFROLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E027",
+    "language_ES": "NEUMOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E002S00017",
+    "language_ES": "NEUMOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E028",
+    "language_ES": "NEUROCIRUGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E028S00014",
+    "language_ES": "NEUROCIRUGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E029",
+    "language_ES": "NEUROFISIOLOGÍA CLÍNICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E030",
+    "language_ES": "NEUROLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E030S00028",
+    "language_ES": "NEUROLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NEUROPSICOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E042",
+    "language_ES": "NUTRICION",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN ARTIFICIAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN DEPORTIVA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN EMBARAZO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN GENERAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN HEPATOPATIA CRONICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN HIPOTIROIDISMO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN HYPERCOLESTEROLEMIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN PATOLOGÍA CARDIOVASCULAR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN PATOLOGÍA CRÓNICA DIGESTIVA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN PATOLOGÍA NEURODEGENERATIVA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "NUTRICIÓN PEDIÁTRICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A391",
+    "language_ES": "OBSTETRICIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E031",
+    "language_ES": "OBSTETRICIA Y GINECOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "",
+    "language_ES": "ODONTOLOGIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "ODONTOPEDIATRIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E032",
+    "language_ES": "OFTALMOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E032S00023",
+    "language_ES": "OFTALMOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E033",
+    "language_ES": "ONCOLOGÍA MÉDICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E033S00010",
+    "language_ES": "ONCOLOGÍA MÉDICA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E034",
+    "language_ES": "ONCOLOGÍA RADIOTERÁPICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A389",
+    "language_ES": "ONDAS DE CHOQUE FOCALES",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A339",
+    "language_ES": "ONDAS DE CHOQUE RADIALES",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "ORTODONCIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E035",
+    "language_ES": "OTORRINOLARINGOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E035S00034",
+    "language_ES": "OTORRINOLARINGOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E002",
+    "language_ES": "PEDIATRÍA-MÉDICO PUERICULTOR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "PERIODONCIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A209",
+    "language_ES": "PET-TAC",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E053",
+    "language_ES": "PODOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A174",
+    "language_ES": "POLISOMNOGRAFÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A393",
+    "language_ES": "POTENCIALES EVOCADOS AUDITIVOS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A394",
+    "language_ES": "POTENCIALES EVOCADOS TRONCO CEREBRAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A395",
+    "language_ES": "POTENCIALES EVOCADOS VISUALES",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E063",
+    "language_ES": "PREPARACION AL PARTO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E011S00008",
+    "language_ES": "PROCTOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E082",
+    "language_ES": "PROTESIS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "",
+    "language_ES": "PSICOLOGIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "PSICOLOGIA CLINICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "PSICOLOGIA INFANTIL JUVENIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "PSICOONCOLOGIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E036",
+    "language_ES": "PSIQUIATRÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E036S00007",
+    "language_ES": "PSIQUIATRÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "RADIOLOGÍA DENTAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A042",
+    "language_ES": "RADIOLOGÍA GENERAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E096",
+    "language_ES": "RADIOLOGÍA INTERVENCIONISTA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A406",
+    "language_ES": "RECONSTRUCCION MAMARIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E037",
+    "language_ES": "REHABILITACIÓN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A360",
+    "language_ES": "REHABILITACIÓN CARDÍACA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A375",
+    "language_ES": "REHABILITACION DE LA ATM",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E037S00026",
+    "language_ES": "REHABILITACIÓN INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A361",
+    "language_ES": "REHABILITACIÓN SUELO PÉLVICO",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A078",
+    "language_ES": "RESONANCIA MAGNÉTICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E032S00009",
+    "language_ES": "RETINA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E038",
+    "language_ES": "REUMATOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E038S00022",
+    "language_ES": "REUMATOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A306",
+    "language_ES": "RHB VESTIBULAR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A414",
+    "language_ES": "RMN ABIERTA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A331",
+    "language_ES": "RMN CARDÍACA DE PERFUSIÓN",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A336",
+    "language_ES": "RMN CEREBRAL FUNCIONAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "SEXOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "",
+    "language_ES": "SOMNOSCOPIA DISE",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A079",
+    "language_ES": "TAC",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "TAC DENTAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A358",
+    "language_ES": "TCA CENTRO DE DIA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A371",
+    "language_ES": "TCA CONSULTAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A392",
+    "language_ES": "TEST NO INVASIVO DX PRENATAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A381",
+    "language_ES": "TEST RAPIDO AG COVID 19",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "",
+    "language_ES": "TRASTORNOS ALIMENTARIOS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E039",
+    "language_ES": "TRATAMIENTO DEL DOLOR",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A342",
+    "language_ES": "TRATAMIENTO PUVA/FOTOTERAPIA PUVA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040",
+    "language_ES": "TRAUMATOLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E040",
+    "language_ES": "TRAUMATOLOGÍA Y CIRUGÍA ORTOPÉDICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E040S00018",
+    "language_ES": "TRAUMATOLOGÍA Y CIRUGÍA ORTOPÉDICA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A305",
+    "language_ES": "UAR CARDIOLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "",
+    "language_ES": "UAR GINECOLOGÍA I MENOR 40 AÑOS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "",
+    "language_ES": "UAR GINECOLOGÍA II MAYOR 40 AÑOS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A304",
+    "language_ES": "UAR UROLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E068",
+    "language_ES": "URGENCIA GENERAL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E057",
+    "language_ES": "URGENCIAS CIRUGÍA PEDIÁTRICA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E054",
+    "language_ES": "URGENCIAS MÉDICAS Y QUIRÚRGICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E069",
+    "language_ES": "URGENCIAS NO HOSPITALARIAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E101",
+    "language_ES": "URGENCIAS OBSTÉTRICAS Y GINECOLÓGICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E303",
+    "language_ES": "URGENCIAS OFTALMOLÓGICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E056",
+    "language_ES": "URGENCIAS ORL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E103",
+    "language_ES": "URGENCIAS PEDIÁTRICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E104",
+    "language_ES": "URGENCIAS PSIQUIÁTRICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E302",
+    "language_ES": "URGENCIAS TRAUMATOLÓGICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E055",
+    "language_ES": "URGENCIAS UROLÓGICAS",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E041",
+    "language_ES": "UROLOGÍA",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SUB_SPECIALTY",
+    "catalogId": "E041S00032",
+    "language_ES": "UROLOGÍA INFANTIL",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A327",
+    "language_ES": "VAPORIZACIÓN PROSTÁTICA POR LÁSER",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "MEDICAL_ACT",
+    "catalogId": "A045",
+    "language_ES": "VASECTOMIA SIN BISTURI",
+    "subspecialties": []
+  },
+  {
+    "id": 0,
+    "type": "SPECIALTY",
+    "catalogId": "E081",
+    "language_ES": "VENTILOTERAPIA",
+    "subspecialties": []
+  }
+]

@@ -111,7 +111,7 @@ Table appointments {
   // survives doctor changes (address moves, name updates, etc.)
   doctor_id              varchar(128) [not null, note: 'stable id within insurer']
   doctor_name            varchar(256) [not null]
-  doctor_specialty       varchar(64)  [not null]
+  doctor_specialty_name  varchar(128) [not null, note: 'Spanish display name from Cigna catalog (e.g. "DERMATOLOGÍA")']
   doctor_clinic_name     varchar(256) [not null]
   doctor_address         text         [not null]
   doctor_phone           varchar(32)  [not null]
