@@ -216,8 +216,8 @@ class CignaScraper(BaseInsurerScraper):
 
         # 3. Fill specialty.
         sp_input = page.locator('input[placeholder*="especialidad" i]').first
-        await sp_input.fill(specialty.value)
-        await self._pick_autocomplete_match(page, specialty.value)
+        await sp_input.fill(specialty.name)
+        await self._pick_autocomplete_match(page, specialty.name)
 
         # 4. Submit.
         await page.locator('button:has-text("Buscar")').first.click()
@@ -302,7 +302,7 @@ class CignaScraper(BaseInsurerScraper):
                     distance_meters=distance,
                 )
             )
-        logger.info("Parsed %d Cigna doctor cards for %s", len(doctors), specialty.value)
+        logger.info("Parsed %d Cigna doctor cards for %s", len(doctors), specialty.name)
         return doctors
 
 
@@ -352,7 +352,7 @@ def doctors_to_dict(doctors: list[Doctor]) -> list[dict]:
         {
             "id": d.id,
             "name": d.name,
-            "specialty": d.specialty.value,
+            "specialty": d.specialty.name,
             "clinic_name": d.clinic_name,
             "address": d.address.raw,
             "phone": d.phone,
