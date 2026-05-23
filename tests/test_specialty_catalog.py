@@ -139,6 +139,38 @@ class TestSynonyms:
         assert result.name == expected
 
 
+# ---- min query length (defends against tier-80 false matches) ----
+
+class TestMinQueryLength:
+    """Single letters and 2-3 char filler words shouldn't algorithmically
+    match anything — tier 80 ('any word in name starts with query') is
+    too aggressive when query is too short. Pre-regression behavior:
+      'I'  → MEDICINA *INTERNA* (the second word starts with 'i')
+      'to' → CIRUGÍA *TORÁCICA*
+      'a'  → ambiguity-rejected by accident
+    See PR #18 / live test debugging.
+    """
+
+    @pytest.mark.parametrize("query", ["I", "i", "a", "in", "to", "see", "the", "an"])
+    def test_short_filler_words_return_none(self, query):
+        assert normalize_specialty(query) is None
+
+    def test_orl_synonym_still_works_despite_min_length(self):
+        """The synonym dict runs BEFORE the min-length check, so 3-char
+        canonical aliases like 'orl' (→ OTORRINOLARINGOLOGÍA) keep working."""
+        result = normalize_specialty("orl")
+        assert result is not None
+        assert result.name == "OTORRINOLARINGOLOGÍA"
+
+    def test_english_sentence_returns_none_until_issue_24(self):
+        """English specialty queries should return None (not a wrong Spanish
+        match) until issue #24 ships the English alias layer."""
+        assert normalize_specialty("I need to see a psychiatrist") is None
+        assert normalize_specialty("book me a psychologist") is None
+        assert normalize_specialty("psychiatrist") is None
+        assert normalize_specialty("psychologist") is None
+
+
 # ---- search: type priority ----
 
 class TestTypePriority:

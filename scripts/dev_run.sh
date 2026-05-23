@@ -103,7 +103,8 @@ PY
 cat <<EOF
 
 ══════════════════════════════════════════════════════════════════════
-  Paste this into Twilio's sandbox "When a message comes in" field:
+  Paste this into Twilio's sandbox "When a message comes in" field
+  (https://console.twilio.com/us1/develop/sms/try-it-out/whatsapp-learn?frameUrl=%2Fconsole%2Fsms%2Fwhatsapp%2Flearn%3Fx-target-region%3Dus1):
 
   $URL/webhooks/whatsapp
 
