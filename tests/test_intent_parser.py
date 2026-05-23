@@ -8,7 +8,11 @@ The parser runs once per inbound WhatsApp booking message and decides:
 """
 from __future__ import annotations
 
-from application.intent_parser import parse_appointment_intent
+from application.intent_parser import (
+    _high_risk_specialty_default,
+    parse_appointment_intent,
+)
+from domain.value_objects.specialty import Specialty, SpecialtyType
 
 
 # ---- specialty extraction ----
@@ -117,6 +121,85 @@ class TestHighRiskSpecialtyDefaults:
         req = parse_appointment_intent("cardiologia, chequeo rutinario")
         assert req is not None
         assert req.max_weeks == 6
+
+
+# ---- regression: substring false-positives that an earlier version had ----
+
+def _spec(name: str) -> Specialty:
+    """Build a Specialty for direct tests without going through the catalog
+    matcher (which may not parse from arbitrary text)."""
+    return Specialty(name=name, type=SpecialtyType.SPECIALTY)
+
+
+class TestHighRiskFalsePositives:
+    """Tests for specialties that LOOK like they'd match a CARDIO/ONCO/NEURO
+    substring but aren't actually high-risk. An earlier version used
+    `any(sub in name.upper() for sub in ("CARDIO","ONCO","NEURO"))` and
+    silently tagged these as urgent, which made it harder to schedule
+    slots when the user hadn't expressed any urgency.
+    """
+
+    def test_broncoscopia_is_not_high_risk(self):
+        """'BR-ONCO-SCOPIA' contains the substring ONCO but is a lung
+        endoscopy, not cancer."""
+        assert _high_risk_specialty_default(_spec("BRONCOSCOPIA")) is None
+
+    def test_tronco_cerebral_is_not_high_risk(self):
+        """'POTENCIALES EVOCADOS TR-ONCO CEREBRAL' contains ONCO but is
+        an evoked-potentials test."""
+        assert _high_risk_specialty_default(
+            _spec("POTENCIALES EVOCADOS TRONCO CEREBRAL")
+        ) is None
+
+    def test_neuropsicologia_is_not_high_risk(self):
+        """Neuropsychology is a psychology specialty, not urgent."""
+        assert _high_risk_specialty_default(_spec("NEUROPSICOLOGÍA")) is None
+
+    def test_neurofisiologia_clinica_is_not_high_risk(self):
+        """Neurophysiology is a diagnostic specialty, not urgent."""
+        assert _high_risk_specialty_default(
+            _spec("NEUROFISIOLOGÍA CLÍNICA")
+        ) is None
+
+    def test_nutricion_neurodegenerativa_is_not_high_risk(self):
+        """Nutrition support, not core neurology."""
+        assert _high_risk_specialty_default(
+            _spec("NUTRICIÓN PATOLOGÍA NEURODEGENERATIVA")
+        ) is None
+
+    def test_ecocardiograma_is_not_high_risk(self):
+        """Diagnostic test, not cardiology care."""
+        assert _high_risk_specialty_default(
+            _spec("ECOCARDIOGRAMA DOPPLER")
+        ) is None
+
+
+class TestHighRiskTruePositives:
+    """Sanity: the catalog entries that SHOULD trigger urgent default
+    still do after the allow-list refactor."""
+
+    def test_cardiologia_is_high_risk(self):
+        assert _high_risk_specialty_default(_spec("CARDIOLOGÍA")) == 1
+
+    def test_cardiologia_infantil_is_high_risk(self):
+        assert _high_risk_specialty_default(_spec("CARDIOLOGÍA INFANTIL")) == 1
+
+    def test_cirugia_cardiovascular_is_high_risk(self):
+        assert _high_risk_specialty_default(_spec("CIRUGÍA CARDIOVASCULAR")) == 1
+
+    def test_oncologia_medica_is_high_risk(self):
+        assert _high_risk_specialty_default(_spec("ONCOLOGÍA MÉDICA")) == 1
+
+    def test_oncologia_radioterapica_is_high_risk(self):
+        assert _high_risk_specialty_default(
+            _spec("ONCOLOGÍA RADIOTERÁPICA")
+        ) == 1
+
+    def test_neurologia_is_high_risk(self):
+        assert _high_risk_specialty_default(_spec("NEUROLOGÍA")) == 1
+
+    def test_neurocirugia_is_high_risk(self):
+        assert _high_risk_specialty_default(_spec("NEUROCIRUGÍA")) == 1
 
 
 # ---- no inference → leaves max_weeks unset for caller fallback ----

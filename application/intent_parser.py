@@ -45,15 +45,32 @@ _NON_URGENT_KEYWORDS: tuple[str, ...] = (
     "routine", "checkup", "check up", "check-up",
 )
 
-# Specialty-name substrings that imply urgency by default (when the user
-# didn't explicitly say). Substring matched (case-insensitive) against
-# Specialty.name. Covers CARDIOLOGÍA, CIRUGÍA CARDIOVASCULAR, ONCOLOGÍA
-# MÉDICA, NEUROLOGÍA, NEUROCIRUGÍA, etc.
-_HIGH_RISK_SPECIALTY_SUBSTRINGS: tuple[str, ...] = (
-    "CARDIO",
-    "ONCO",
-    "NEURO",
-)
+# Specialties that imply urgency by default — when the user didn't say.
+# Explicit allow-list rather than a substring match: "CARDIO"/"ONCO"/"NEURO"
+# would catch BRONCOSCOPIA (br-ONCO-scopia), TRONCO CEREBRAL (tr-ONCO),
+# NEUROPSICOLOGÍA, ECOCARDIOGRAMA, etc., none of which warrant a 1-week
+# default. Compared against `Specialty.name` (Cigna's canonical
+# language_ES value); keep the accents — they're part of the canonical
+# string.
+_HIGH_RISK_SPECIALTY_NAMES: frozenset[str] = frozenset({
+    # Cardiology
+    "CARDIOLOGÍA",
+    "CARDIOLOGÍA INFANTIL",
+    "CARDIOLOGÍA INTERVENCIONISTA",
+    "CIRUGÍA CARDIOVASCULAR",
+    "UAR CARDIOLOGÍA",
+    # Oncology
+    "ONCOLOGÍA MÉDICA",
+    "ONCOLOGÍA MÉDICA INFANTIL",
+    "ONCOLOGÍA RADIOTERÁPICA",
+    # Neurology / neurosurgery (the clinically-urgent ones — explicitly
+    # excludes NEUROFISIOLOGÍA, NEUROPSICOLOGÍA, NUTRICIÓN PATOLOGÍA
+    # NEURODEGENERATIVA, etc.)
+    "NEUROLOGÍA",
+    "NEUROLOGÍA INFANTIL",
+    "NEUROCIRUGÍA",
+    "NEUROCIRUGÍA INFANTIL",
+})
 
 # How many weeks out we'll accept a slot for each urgency level. Tuned
 # against typical Spanish private-insurance wait times; revisit if real
@@ -127,8 +144,7 @@ def _detect_urgency_from_text(text: str) -> int | None:
 
 
 def _high_risk_specialty_default(specialty: Specialty) -> int | None:
-    name_upper = specialty.name.upper()
-    if any(sub in name_upper for sub in _HIGH_RISK_SPECIALTY_SUBSTRINGS):
+    if specialty.name in _HIGH_RISK_SPECIALTY_NAMES:
         return _URGENT_MAX_WEEKS
     return None
 
