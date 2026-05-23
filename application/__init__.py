@@ -1,5 +1,6 @@
 from .book_appointment import AppointmentRequest, BookAppointmentUseCase
 from .handle_otp import HandleOTPUseCase
+from .intent_parser import parse_appointment_intent
 from .onboarding import (
     CredentialsLinkIssuer,
     OnboardingDraft,
@@ -63,6 +64,7 @@ __all__ = [
     "TokenValidation",
     "is_done",
     "is_skip",
+    "parse_appointment_intent",
     "parse_excluded_days",
     "parse_insurer",
     "parse_preferred_time",

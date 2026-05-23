@@ -1,6 +1,7 @@
 """Use case: book a private health appointment for a user."""
 from __future__ import annotations
 
+import dataclasses
 import logging
 from dataclasses import dataclass
 
@@ -15,6 +16,7 @@ from domain.entities.appointment import Appointment, AppointmentStatus
 from domain.entities.user import User
 from domain.repositories.appointment_repository import AppointmentRepository
 from domain.value_objects.specialty import Specialty
+from domain.value_objects.time_slot import AvailabilityWindow
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ logger = logging.getLogger(__name__)
 class AppointmentRequest:
     specialty: Specialty
     raw_query: str  # original user message, for context
+    max_weeks: int | None = None  # per-request urgency override; None → use user.availability.max_weeks_out
 
 
 class BookAppointmentUseCase:
@@ -58,7 +61,9 @@ class BookAppointmentUseCase:
 
         logger.info("Found %d doctors, starting call loop", len(doctors))
         outcome = await self._voice_caller.book_first_available(
-            doctors, on_behalf_of=user, constraints=user.availability
+            doctors,
+            on_behalf_of=user,
+            constraints=_constraints_for_request(user, request),
         )
 
         if outcome is None or not outcome.success or outcome.slot is None:
@@ -111,6 +116,22 @@ class BookAppointmentUseCase:
             # The callback didn't return a code (timeout, etc.). The user
             # has already been notified inside wait_for_otp.
             return []
+
+
+def _constraints_for_request(
+    user: User, request: AppointmentRequest
+) -> AvailabilityWindow:
+    """Build the AvailabilityWindow the voice caller should respect for
+    this booking. If the request's intent parser inferred an urgency
+    (`max_weeks` set), override the user's default max_weeks_out for this
+    one booking only — preserving all the other prefs (preferred-time,
+    excluded days, travel buffer, etc.) from the user's profile.
+    """
+    if request.max_weeks is None:
+        return user.availability
+    return dataclasses.replace(
+        user.availability, max_weeks_out=request.max_weeks
+    )
 
 
 def _new_id() -> str:
