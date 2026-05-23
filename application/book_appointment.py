@@ -84,28 +84,33 @@ class BookAppointmentUseCase:
         return appointment
 
     async def _find_doctors_handling_otp(self, user: User, request: AppointmentRequest):
-        """Run scraper, looping back through OTP if required."""
-        otp_code: str | None = None
-        for _ in range(2):  # at most one OTP retry per request
-            try:
-                return await self._scraper.find_doctors(
-                    user=user,
-                    specialty=request.specialty,
-                    near=user.home_address,
-                    otp_code=otp_code,
+        """Run scraper, providing an inline OTP callback so the browser
+        stays open across the OTP wait. Okta-style OTP flows (Cigna)
+        invalidate the code if the session restarts.
+        """
+        async def wait_for_otp() -> str | None:
+            await self._whatsapp.request_otp(user)
+            code = await self._otp_relay.wait_for_code(
+                user.phone, self._otp_timeout_seconds
+            )
+            if code is None:
+                await self._whatsapp.send_text(
+                    user.phone,
+                    "I didn't get the code in time. Send 'cita' to start over.",
                 )
-            except OTPRequired:
-                await self._whatsapp.request_otp(user)
-                otp_code = await self._otp_relay.wait_for_code(
-                    user.phone, self._otp_timeout_seconds
-                )
-                if otp_code is None:
-                    await self._whatsapp.send_text(
-                        user.phone,
-                        "I didn't get the code in time. Send 'cita' to start over.",
-                    )
-                    return []
-        return []
+            return code
+
+        try:
+            return await self._scraper.find_doctors(
+                user=user,
+                specialty=request.specialty,
+                near=user.home_address,
+                wait_for_otp=wait_for_otp,
+            )
+        except OTPRequired:
+            # The callback didn't return a code (timeout, etc.). The user
+            # has already been notified inside wait_for_otp.
+            return []
 
 
 def _new_id() -> str:

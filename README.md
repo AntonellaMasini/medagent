@@ -31,17 +31,34 @@ interfaces/  → application/  → domain/
 ## Setup
 
 ```bash
-# Install deps
-uv sync
-uv run playwright install chromium
+# Install deps + Playwright browser (one-time)
+make install
 
 # Configure
 cp .env.example .env
 # fill in Twilio creds, generate SECRET_KEY:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
 
-# Run (migrations run automatically on boot in dev)
-uv run uvicorn main:app --reload
+## Running locally
+
+```bash
+make run
+```
+
+That starts ngrok, writes the new public URL into `.env` as `BASE_URL`, and
+starts uvicorn with `--reload`. The only manual step left is **pasting the
+URL it prints into Twilio's sandbox webhook field** (Twilio sandbox config
+can't be set programmatically — paid numbers can).
+
+`make stop` kills any leftover ngrok / uvicorn if a previous run exited
+messily. `make logs` tails the ngrok log.
+
+If you'd rather run things by hand:
+
+```bash
+uv run uvicorn main:app --reload   # terminal 1
+ngrok http 8000                    # terminal 2 — then update .env BASE_URL manually
 ```
 
 ## Database migrations

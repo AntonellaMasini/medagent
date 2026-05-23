@@ -201,11 +201,21 @@ class SpecialtyCatalog:
         if not q:
             return None
 
-        # 1. Synonym lookup
+        # 1. Synonym lookup — runs FIRST so short canonical aliases (e.g.
+        # "orl", 3 chars) still work despite the min-length gate below.
         if (target := _SYNONYMS.get(q)) is not None:
             return self.find_by_name(target)
 
-        # 2. Score everything. (Exact match becomes tier 200; we don't
+        # 2. Reject too-short queries before algorithmic scoring. Single
+        # letters or 2-3 char filler words match too aggressively under
+        # tier 80 ("any word in name starts with query") — e.g. "I" would
+        # match MEDICINA *INTERNA* (the second word starts with "i") and
+        # "to" would match CIRUGÍA *TORÁCICA*. Anything shorter than 4 chars
+        # that's not in the synonym dict is treated as a non-specialty token.
+        if len(q) < 4:
+            return None
+
+        # 3. Score everything. (Exact match becomes tier 200; we don't
         # short-circuit on it so that the SPECIALTY priority still wins
         # over a same-named MEDICAL_ACT — e.g. "obstetricia" picks
         # OBSTETRICIA Y GINECOLOGÍA, not the MEDICAL_ACT also called

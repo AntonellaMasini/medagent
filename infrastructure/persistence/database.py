@@ -86,7 +86,12 @@ class AppointmentRow(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_phone: Mapped[str] = mapped_column(String(32), index=True)
-    doctor_id: Mapped[str] = mapped_column(String(128))
+    # Insurer identifiers — see domain/entities/doctor.py for the distinction.
+    # `clinic_id` is what we'd query by ("Dr. X at this clinic").
+    # `practitioner_id` is the snapshot of the doctor's stable id, useful if
+    # we ever want to aggregate "all appointments with Dr. X across clinics".
+    doctor_clinic_id: Mapped[str] = mapped_column(String(128))
+    doctor_practitioner_id: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(256))
     # Spanish display name from Cigna's specialty catalog (e.g. "DERMATOLOGÍA"
     # or "PSICOLOGIA"). Snapshot at booking time — survives Cigna renames as

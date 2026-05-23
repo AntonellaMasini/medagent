@@ -45,7 +45,8 @@ class SQLiteAppointmentRepository(AppointmentRepository):
 
     def _appt_to_row(self, appt: Appointment, row: AppointmentRow) -> None:
         row.user_phone = appt.user_phone
-        row.doctor_id = appt.doctor.id
+        row.doctor_clinic_id = appt.doctor.clinic_id
+        row.doctor_practitioner_id = appt.doctor.practitioner_id
         row.doctor_name = appt.doctor.name
         row.doctor_specialty_name = appt.doctor.specialty.name
         row.doctor_clinic_name = appt.doctor.clinic_name
@@ -67,7 +68,8 @@ class SQLiteAppointmentRepository(AppointmentRepository):
             name=row.doctor_specialty_name, type=SpecialtyType.SPECIALTY
         )
         doctor = Doctor(
-            id=row.doctor_id,
+            clinic_id=row.doctor_clinic_id,
+            practitioner_id=row.doctor_practitioner_id,
             name=row.doctor_name,
             specialty=specialty,
             clinic_name=row.doctor_clinic_name,
