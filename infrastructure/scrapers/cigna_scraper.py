@@ -652,13 +652,6 @@ class CignaScraper(BaseInsurerScraper):
             "Clicked SMS Seleccionar (native click, index %d of %d)",
             target_index, count,
         )
-        return
-
-        await self._capture_screen(page, "cigna_verify_no_buttons.png")
-        logger.warning(
-            "Could not find SMS Seleccionar button — see "
-            "cigna_verify_no_buttons.png; login will likely fail"
-        )
 
     async def _click_enviar_codigo(self, page: Page) -> None:
         """Click "Enviar Código" on the SMS confirmation screen that Cigna
