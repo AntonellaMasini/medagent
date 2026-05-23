@@ -20,12 +20,12 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Form, Response
 
-from application.book_appointment import AppointmentRequest, BookAppointmentUseCase
+from application.book_appointment import BookAppointmentUseCase
 from application.handle_otp import HandleOTPUseCase
+from application.intent_parser import parse_appointment_intent
 from application.onboarding import OnboardingStateMachine
 from application.ports import BaseMessagingClient, BaseOTPRelay
 from domain.repositories.user_repository import UserRepository
-from domain.value_objects.specialty import normalize_specialty
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,8 @@ def build_whatsapp_router(
         # 2) Registered user → booking flow.
         user = await user_repo.get_by_phone(phone)
         if user is not None:
-            specialty = normalize_specialty(body) or _extract_specialty(body)
-            if specialty is None:
+            req = parse_appointment_intent(body)
+            if req is None:
                 background.add_task(
                     whatsapp.send_text,
                     phone,
@@ -78,7 +78,6 @@ def build_whatsapp_router(
                     "'I need a dermatologo', etc.",
                 )
                 return _twiml()
-            req = AppointmentRequest(specialty=specialty, raw_query=body)
             background.add_task(book_use_case.execute, user, req)
             return _twiml()
 
@@ -95,12 +94,3 @@ def _twiml() -> Response:
 
 def _strip_whatsapp_prefix(s: str) -> str:
     return s[len("whatsapp:"):] if s.startswith("whatsapp:") else s
-
-
-def _extract_specialty(body: str):
-    """Pull a specialty out of a freeform sentence by scanning each word."""
-    for token in body.replace(",", " ").split():
-        m = normalize_specialty(token)
-        if m:
-            return m
-    return None
