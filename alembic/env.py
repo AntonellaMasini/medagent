@@ -29,7 +29,11 @@ from infrastructure.persistence.database import Base  # noqa: E402
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: without this, fileConfig() flips
+    # .disabled=True on every logger that already exists (including the
+    # app's webhook/use-case loggers when alembic runs inside the FastAPI
+    # lifespan), silencing them for the rest of the process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Allow override via env var (CI / programmatic invocation); else use Settings.
 db_url = os.environ.get("DATABASE_URL") or get_settings().database_url
