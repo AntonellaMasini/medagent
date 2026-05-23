@@ -109,7 +109,8 @@ Table appointments {
 
   // Doctor snapshot — denormalized on purpose so the appointment record
   // survives doctor changes (address moves, name updates, etc.)
-  doctor_id              varchar(128) [not null, note: 'stable id within insurer']
+  doctor_clinic_id       varchar(128) [not null, note: 'Cigna addresses[].id — "this doctor AT this clinic"; what we query by']
+  doctor_practitioner_id varchar(128) [not null, note: 'Cigna top-level practitioner id (e.g. "-1402186762"); useful for cross-clinic aggregation']
   doctor_name            varchar(256) [not null]
   doctor_specialty_name  varchar(128) [not null, note: 'Spanish display name from Cigna catalog (e.g. "DERMATOLOGÍA")']
   doctor_clinic_name     varchar(256) [not null]

@@ -2,7 +2,7 @@
 
 > The 10,000-ft view. For individual work items, see [GitHub issues](https://github.com/AntonellaMasini/medagent/issues). For the original vision, see [`medagent_project_brief.md`](../medagent_project_brief.md). For engineering conventions, see [`CLAUDE.md`](../CLAUDE.md).
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-23
 
 ## Vision (one paragraph)
 
@@ -10,7 +10,7 @@ WhatsApp-driven AI agent that books private health insurance appointments in Spa
 
 ## Where we are right now
 
-**Phase 1 (Foundation) — ✅ done**, **Phase 2 (Cigna live) — 🚧 in progress**, **Phase 3 (Voice + Calendar)** and beyond — not started.
+**Phase 1 (Foundation) — ✅ done**, **Phase 2 (Cigna live) — ✅ done** (this PR), **Phase 3 (Voice + Calendar) — 🚧 next**, beyond — not started.
 
 ### Phase 1: Foundation — DONE
 
@@ -23,21 +23,21 @@ WhatsApp-driven AI agent that books private health insurance appointments in Spa
 | Specialty catalog from real Cigna data (194 entries, Spanish-only search) | accent-tolerant + gender-suffix-tolerant matching |
 | Alembic migrations + drift check in CI | no model-vs-DB drift can land |
 
-### Phase 2: Cigna live — IN PROGRESS
+### Phase 2: Cigna live — DONE
 
-The booking flow needs a working insurer adapter. Today's `CignaScraper` is HTML-selector-based and was never validated against the real site. We discovered Cigna's JSON API while testing — switching to that is the next big unlock.
+`CignaScraper` no longer parses HTML. After Playwright handles login + OTP, all data fetches go through Cigna's authenticated JSON API via `CignaApiClient` — `chipcard → session-id-token → policies → advanced-search`. Geo coordinates + distances come from the API, so `google_maps.py` is no longer a hard dep for Cigna. The `Doctor` entity now models a (practitioner × clinic) tuple with proper Cigna identifiers (`clinic_id`, `practitioner_id`).
 
 | Status | Issue | What |
 |---|---|---|
-| 🚧 next | [#18](https://github.com/AntonellaMasini/medagent/issues/18) | Switch Cigna scraper from HTML parsing to authenticated `/dm/api/providers/advanced-search` chain. Endpoint chain fully mapped; ready to implement. |
+| ✅ done | [#18](https://github.com/AntonellaMasini/medagent/issues/18) | Switch Cigna scraper from HTML parsing to authenticated `/dm/api/providers/advanced-search` chain |
 
 ### Phase 3: Voice + Calendar — NEXT
 
-Once we can reliably get doctors from Cigna, the remaining MVP pieces are the voice caller and the calendar integration. Voice is the gnarly one.
+Now that we can reliably get doctors from Cigna, the remaining MVP pieces are the voice caller and the calendar integration. Voice is the gnarly one.
 
 | Status | Issue | What |
 |---|---|---|
-| 📋 pending | [#3](https://github.com/AntonellaMasini/medagent/issues/3) | Wire slot validation into voice caller — small (~half day) |
+| 🚧 next | [#3](https://github.com/AntonellaMasini/medagent/issues/3) | Wire slot validation into voice caller — small (~half day) |
 | 📋 pending | [#4](https://github.com/AntonellaMasini/medagent/issues/4) | Real Twilio Voice + ElevenLabs/LLM voice caller — the hard one |
 | 📋 pending | [#5](https://github.com/AntonellaMasini/medagent/issues/5) | Google Calendar integration (makes travel buffer real) |
 
