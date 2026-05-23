@@ -223,7 +223,7 @@ class TestNoOTPWait:
         r = _post(client, "hello there")
         assert r.status_code == 200
         assert book.calls == []
-        assert any("especialidad" in b.lower() for _, b in wa.sent)
+        assert any("specialty" in b.lower() for _, b in wa.sent)
 
     def test_new_user_routes_to_onboarding(self):
         client, _, _, _, onboarding, book = _make_app(

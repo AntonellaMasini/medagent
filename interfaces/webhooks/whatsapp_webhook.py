@@ -74,8 +74,8 @@ def build_whatsapp_router(
                 background.add_task(
                     whatsapp.send_text,
                     phone,
-                    "No reconocí la especialidad. Prueba: 'cita con psicólogo', "
-                    "'busco dermatólogo', etc.",
+                    "I didn't recognize a specialty. Try: 'book a psicologo', "
+                    "'I need a dermatologo', etc.",
                 )
                 return _twiml()
             req = AppointmentRequest(specialty=specialty, raw_query=body)
