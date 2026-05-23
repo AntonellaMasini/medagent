@@ -7,6 +7,7 @@ autogenerate can detect schema drift.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import sys
 from logging.config import fileConfig
@@ -29,11 +30,26 @@ from infrastructure.persistence.database import Base  # noqa: E402
 config = context.config
 
 if config.config_file_name is not None:
-    # disable_existing_loggers=False: without this, fileConfig() flips
-    # .disabled=True on every logger that already exists (including the
-    # app's webhook/use-case loggers when alembic runs inside the FastAPI
-    # lifespan), silencing them for the rest of the process.
+    # Calling fileConfig() does TWO disruptive things to the global logging
+    # state that bite the app when alembic runs inside the FastAPI lifespan:
+    #
+    #   1. With disable_existing_loggers=True (the default), it flips
+    #      .disabled=True on every logger that already exists (whatsapp
+    #      webhook, use cases, scrapers, etc.) — all `logger.info(...)`
+    #      calls become silent dead-letters.
+    #
+    #   2. It applies alembic.ini's `[logger_root] level = WARN` to the
+    #      root logger, which downgrades the level set by main.py's
+    #      basicConfig. Every INFO log from non-alembic modules is then
+    #      filtered out for the rest of the process.
+    #
+    # We disable (1) via disable_existing_loggers=False. We work around
+    # (2) by snapshotting the root level before fileConfig and restoring
+    # it after — alembic still configures its own logger names, but the
+    # root level the app wanted is preserved.
+    _app_root_level = logging.getLogger().level
     fileConfig(config.config_file_name, disable_existing_loggers=False)
+    logging.getLogger().setLevel(_app_root_level)
 
 # Allow override via env var (CI / programmatic invocation); else use Settings.
 db_url = os.environ.get("DATABASE_URL") or get_settings().database_url

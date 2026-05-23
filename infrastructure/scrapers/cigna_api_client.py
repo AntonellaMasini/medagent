@@ -35,12 +35,27 @@ from domain.value_objects.specialty import Specialty
 logger = logging.getLogger(__name__)
 
 
+_HOME_URL = "https://clientes.cigna.es/cp/api/private/home"
 _CHIPCARD_URL = "https://clientes.cigna.es/cp/api/private/chipcard"
+_AUTH_TOKENS_URL = "https://clientes.cigna.es/cp/api/public/authentication/tokens"
 _SESSION_TOKEN_URL = "https://directorio-medico.cigna.es/dm/api/tuotempo/session-id-token"
 _POLICIES_URL = "https://directorio-medico.cigna.es/dm/api/policies"
 _SEARCH_URL = "https://directorio-medico.cigna.es/dm/api/providers/advanced-search"
 
-_JSON_HEADERS = {"Accept": "application/json"}
+# Cigna's private API endpoints redirect to /cp/home when called without
+# the headers their SPA normally sends. The session cookies alone aren't
+# enough — the server checks Referer + X-Requested-With to confirm the
+# request is from inside the portal app.
+_HEADERS_CLIENTES = {
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://clientes.cigna.es/cp/home",
+    "X-Requested-With": "XMLHttpRequest",
+}
+_HEADERS_DIRECTORIO = {
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://directorio-medico.cigna.es/dm/cuadro-medico",
+    "X-Requested-With": "XMLHttpRequest",
+}
 
 
 # ---- Response value objects ----
@@ -96,15 +111,33 @@ class CignaApiClient:
 
     # ---- single-endpoint methods ----
 
-    async def fetch_chipcard(self, nie: str) -> ChipcardResponse:
+    async def fetch_home(self) -> str:
+        """GET /cp/api/private/home.
+
+        Returns the user's true `insuranceNumber` (e.g. "Z3512875K01" —
+        full NIE + person-number suffix). This is NOT the same value the
+        user types into the login form: Cigna accepts NIE/NIF/Pasaporte
+        as login identifiers, but every downstream private API endpoint
+        (/chipcard, /list, /messageForUser, …) expects the user's actual
+        insurance number from /home. Always call this first.
+        """
+        response = await self._get(_HOME_URL, headers=_HEADERS_CLIENTES)
+        body = await self._json(response, _HOME_URL)
+        try:
+            return body["insuranceNumber"]
+        except (KeyError, TypeError) as e:
+            raise CignaApiBadPayload(
+                f"{_HOME_URL} response missing insuranceNumber: {e}"
+            ) from e
+
+    async def fetch_chipcard(self, insurance_number: str) -> ChipcardResponse:
         """GET /cp/api/private/chipcard.
 
-        The `01` suffix on the insuranceNumber param is the person number
-        within the policy. `01` = primary policyholder; family members
-        would be `02`/`03`/...  MVP scope assumes primary-only.
+        Takes the full `insuranceNumber` returned by /home (e.g. "Z3512875K01")
+        — already has the person-number suffix embedded.
         """
-        params = {"insuranceNumber": f"{nie}01"}
-        response = await self._get(_CHIPCARD_URL, params=params)
+        params = {"insuranceNumber": insurance_number}
+        response = await self._get(_CHIPCARD_URL, params=params, headers=_HEADERS_CLIENTES)
         body = await self._json(response, _CHIPCARD_URL)
 
         try:
@@ -127,45 +160,85 @@ class CignaApiClient:
         the current login session.
         """
         params = {"chipcard": chipcard, "authorized": "true"}
-        response = await self._get(_SESSION_TOKEN_URL, params=params)
+        response = await self._get(_SESSION_TOKEN_URL, params=params, headers=_HEADERS_DIRECTORIO)
         body = await self._json(response, _SESSION_TOKEN_URL)
 
-        # Cigna returns either a bare value or {"sessionId": ...}.
-        # Tolerate both — verified shape may shift between releases.
+        # Cigna's response shape has shifted over time. Order is in
+        # rough preference (newest format first based on observed responses).
+        # Bare-value path remains for older clones.
         if isinstance(body, (int, str)):
             return str(body)
         if isinstance(body, dict):
-            for key in ("sessionId", "session-id-token", "token"):
+            for key in ("ots_token", "sessionId", "session-id-token", "token"):
                 if key in body:
                     return str(body[key])
         raise CignaApiBadPayload(
-            f"{_SESSION_TOKEN_URL} returned unexpected shape: {type(body).__name__}"
+            f"{_SESSION_TOKEN_URL} returned unexpected shape "
+            f"({type(body).__name__}); body={body!r}"
         )
 
-    async def fetch_id_member(self, session_token: str) -> int:
-        """GET /dm/api/policies/<session-token>.
+    async def fetch_id_member(self, session_token: str) -> int:  # noqa: ARG002 — kept for sig compat
+        """Get the user's `idMember` from the Cigna-issued JWT in cookies.
 
-        Returns the user's `idMember` (a stable integer per user).
+        The original chain used GET /dm/api/policies/<session-token>, but
+        that endpoint now returns 400 with an HTML error page. The same
+        `idMember` value is exposed as the `memberid` claim inside the
+        Cigna JWT — and the JWT itself is already set as a cookie by
+        Cigna's SPA right after login (cookie name varies, but the value
+        always starts with "eyJ" and has 3 dot-separated segments).
+
+        Reading the cookie is more robust than re-calling the JWT-issuing
+        endpoint: the cookie keeps working even when Cigna renames or
+        adds auth requirements to that endpoint (as they recently did —
+        a fresh POST to /cp/api/public/authentication/tokens now 400s).
         """
-        url = f"{_POLICIES_URL}/{session_token}"
-        response = await self._get(url)
-        body = await self._json(response, url)
-        try:
-            return int(body["idMember"])
-        except (KeyError, TypeError, ValueError) as e:
-            raise CignaApiBadPayload(
-                f"{url} response missing/invalid idMember: {e}"
-            ) from e
+        import base64
+        import json
+
+        cookies = await self._context.cookies()
+        candidate_jwts = []
+        for c in cookies:
+            value = c.get("value", "")
+            # JWT: 3 base64url segments separated by dots, header starts "eyJ".
+            if value.startswith("eyJ") and value.count(".") == 2:
+                candidate_jwts.append((c.get("name", "?"), value))
+
+        for name, jwt in candidate_jwts:
+            try:
+                payload_b64 = jwt.split(".")[1]
+                padding = "=" * (-len(payload_b64) % 4)
+                payload = json.loads(
+                    base64.urlsafe_b64decode(payload_b64 + padding)
+                )
+                if "memberid" in payload:
+                    logger.info(
+                        "Extracted idMember=%s from cookie %s",
+                        payload["memberid"], name,
+                    )
+                    return int(payload["memberid"])
+            except (ValueError, KeyError, TypeError):
+                continue  # not the right JWT — try the next one
+
+        raise CignaApiBadPayload(
+            f"No Cigna JWT cookie with a `memberid` claim found "
+            f"(found {len(candidate_jwts)} JWT-shaped cookies but none had memberid)"
+        )
 
     # ---- composite ----
 
-    async def fetch_user_context(self, nie: str) -> UserContext:
-        """Run the first three calls in order to gather everything needed for search.
+    async def fetch_user_context(self, nie: str) -> UserContext:  # noqa: ARG002 — nie kept for caller compat
+        """Run the first four calls in order to gather everything needed for search.
 
-        chipcard → session_token → idMember. Returns a `UserContext` with
-        the three values bundled.
+        home → chipcard → session_token → idMember. Returns a `UserContext`.
+
+        Why /home first: the login identifier (NIE/NIF/Pasaporte) is NOT
+        the value the private API expects as `insuranceNumber`. For users
+        who logged in with a passport, the two are completely different
+        (e.g. login "YB1133771" → real insuranceNumber "Z3512875K01").
+        /home returns the canonical `insuranceNumber`.
         """
-        chipcard_response = await self.fetch_chipcard(nie)
+        insurance_number = await self.fetch_home()
+        chipcard_response = await self.fetch_chipcard(insurance_number)
         session_token = await self.fetch_session_token(chipcard_response.chipcard)
         id_member = await self.fetch_id_member(session_token)
         logger.info(
@@ -209,7 +282,7 @@ class CignaApiClient:
             "outpatient": "N",
             "searchByDistanceTypes": "EN",
         }
-        response = await self._get(_SEARCH_URL, params=params)
+        response = await self._get(_SEARCH_URL, params=params, headers=_HEADERS_DIRECTORIO)
         body = await self._json(response, _SEARCH_URL)
         content = body.get("content", []) if isinstance(body, dict) else []
         if not isinstance(content, list):
@@ -225,9 +298,15 @@ class CignaApiClient:
 
     # ---- internals ----
 
-    async def _get(self, url: str, *, params: dict | None = None) -> APIResponse:
+    async def _get(
+        self,
+        url: str,
+        *,
+        params: dict | None = None,
+        headers: dict | None = None,
+    ) -> APIResponse:
         response = await self._context.request.get(
-            url, params=params, headers=_JSON_HEADERS
+            url, params=params, headers=headers or {"Accept": "application/json"}
         )
         if not response.ok:
             text = await response.text()
@@ -238,7 +317,8 @@ class CignaApiClient:
         try:
             return await response.json()
         except Exception as e:
-            # Most common cause: forgot the Accept header and got XML back.
+            # Most common cause: forgot the Accept header and got XML back,
+            # or the session is stale and we got redirected to a login page.
             text = await response.text()
             raise CignaApiBadPayload(
                 f"{url} returned non-JSON body (got {text[:100]!r}): {e}"

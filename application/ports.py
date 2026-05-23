@@ -5,6 +5,7 @@ Use cases depend on these; infrastructure implements them.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from domain.entities.appointment import Appointment
@@ -39,12 +40,27 @@ class BaseInsurerScraper(ABC):
         specialty: Specialty,
         near: Address,
         otp_code: str | None = None,
+        wait_for_otp: "OTPProvider | None" = None,
     ) -> list[Doctor]:
         """Return doctors sorted by distance from `near`.
 
-        Raises OTPRequired if the session needs an SMS code. Caller is expected
-        to obtain the code (e.g. via WhatsApp) and call again with otp_code set.
+        OTP handling:
+          - If `wait_for_otp` is provided, the scraper calls it inline when
+            it reaches an OTP entry screen, keeping the browser session open
+            while it awaits the user's reply. This is the preferred path —
+            Okta-style flows tie OTPs to the session that requested them, so
+            restarting the scraper invalidates the code.
+          - If `wait_for_otp` is None and an OTP is required, raises
+            OTPRequired (legacy path; caller restarts find_doctors with
+            `otp_code` set — only safe for insurers that scope OTPs to the
+            account rather than the session).
         """
+
+
+# A callback the scraper invokes mid-login when it needs the user to supply
+# an OTP. Implementations typically: send a WhatsApp prompt, wait for the
+# user to reply, return the digits (or None on timeout).
+OTPProvider = Callable[[], Awaitable[str | None]]
 
 
 # ---- Voice caller ----
