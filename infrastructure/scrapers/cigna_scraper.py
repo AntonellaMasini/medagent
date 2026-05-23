@@ -222,11 +222,13 @@ def _parse_doctors_response(raw: list[dict], specialty: Specialty) -> list[Docto
         name = (entry.get("name") or "").strip()
         for addr in entry.get("addresses") or []:
             clinic_id = str(addr.get("id") or "").strip()
+            clinic_org_id = str(addr.get("idProvider") or "").strip()
             clinic_name = (addr.get("provider") or name).strip()
             doctors.append(
                 Doctor(
                     clinic_id=clinic_id,
                     practitioner_id=practitioner_id,
+                    clinic_org_id=clinic_org_id,
                     name=name or clinic_name,
                     specialty=specialty,
                     clinic_name=clinic_name,

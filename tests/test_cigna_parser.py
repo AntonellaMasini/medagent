@@ -27,6 +27,7 @@ ONE_DOCTOR_ONE_CLINIC = [
         "addresses": [
             {
                 "id": 1501103525,
+                "idProvider": "13689120",
                 "provider": "SH PSICOSALUD",
                 "address": "C. Don Pedro, 17",
                 "city": "MADRID",
@@ -37,6 +38,43 @@ ONE_DOCTOR_ONE_CLINIC = [
             }
         ],
     }
+]
+
+# Two distinct practitioners at the same clinic — same idProvider, same phone,
+# but different addresses[].id and different practitioner ids.
+TWO_DOCTORS_SAME_CLINIC = [
+    {
+        "id": "111",
+        "name": "RUBIO, ILUMINADA",
+        "addresses": [
+            {
+                "id": 1001,
+                "idProvider": "13689120",
+                "provider": "CLÍNICA ARMSTRONG INTERNACIONAL",
+                "address": "C/ Guzmán El Bueno 102",
+                "city": "MADRID",
+                "phone1": "915358790",
+                "postcd": "28003",
+                "distanceToSearchPoint": 0.75,
+            }
+        ],
+    },
+    {
+        "id": "222",
+        "name": "ROMERO, ANA ISABEL",
+        "addresses": [
+            {
+                "id": 1002,
+                "idProvider": "13689120",
+                "provider": "CLÍNICA ARMSTRONG INTERNACIONAL",
+                "address": "C/ Guzmán El Bueno 102",
+                "city": "MADRID",
+                "phone1": "915358790",
+                "postcd": "28003",
+                "distanceToSearchPoint": 0.75,
+            }
+        ],
+    },
 ]
 
 ONE_DOCTOR_THREE_CLINICS = [
@@ -89,11 +127,24 @@ class TestParseHappyPath:
         assert isinstance(d, Doctor)
         assert d.practitioner_id == "-1402186762"
         assert d.clinic_id == "1501103525"
+        assert d.clinic_org_id == "13689120"
         assert d.name == "HERMOSO IZQUIERDO, SOLEDAD"
         assert d.clinic_name == "SH PSICOSALUD"
         assert d.specialty.name == "PSICOLOGIA"
         assert d.phone == "915631554"
         assert d.distance_meters == 450  # 0.45 km → 450 m
+
+    def test_doctors_at_same_clinic_share_clinic_org_id(self):
+        """`addresses[].idProvider` is the same across all practitioners at
+        the same clinic. The voice caller will group by this field."""
+        result = _parse_doctors_response(TWO_DOCTORS_SAME_CLINIC, SPECIALTY)
+        assert len(result) == 2
+        assert result[0].name == "RUBIO, ILUMINADA"
+        assert result[1].name == "ROMERO, ANA ISABEL"
+        # Same clinic org, same phone — different practitioner ids
+        assert result[0].clinic_org_id == result[1].clinic_org_id == "13689120"
+        assert result[0].phone == result[1].phone == "915358790"
+        assert result[0].practitioner_id != result[1].practitioner_id
 
     def test_address_carries_coordinates(self):
         result = _parse_doctors_response(ONE_DOCTOR_ONE_CLINIC, SPECIALTY)
@@ -159,6 +210,27 @@ class TestParseEdgeCases:
         ]
         d = _parse_doctors_response(raw, SPECIALTY)[0]
         assert d.address.coordinates is None
+
+    def test_missing_id_provider_yields_empty_clinic_org_id(self):
+        """Some Cigna entries omit `idProvider`; we store empty string and
+        log no warning — the voice caller's grouping will fall back to phone."""
+        raw = [
+            {
+                "id": "1",
+                "name": "DR",
+                "addresses": [
+                    {
+                        "id": 100,
+                        "provider": "CLINIC",
+                        "address": "X",
+                        "phone1": "9",
+                        # idProvider omitted
+                    }
+                ],
+            }
+        ]
+        d = _parse_doctors_response(raw, SPECIALTY)[0]
+        assert d.clinic_org_id == ""
 
     def test_partial_geo_point_returns_none_coordinates(self):
         """Half-populated geo points are treated as missing."""
