@@ -253,7 +253,7 @@ async def run_call_session(
             to=to_phone,
             from_=cfg.twilio_voice_number,
             status_callback=f"{cfg.base_url}/webhooks/voice/status",
-            status_callback_event=["completed", "busy", "no-answer", "failed", "canceled"],
+            status_callback_event=["completed"],
         )
         logger.info(
             "Twilio outbound call placed: call_id=%s sid=%s → %s",
