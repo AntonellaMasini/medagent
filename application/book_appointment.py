@@ -67,22 +67,25 @@ class BookAppointmentUseCase:
 
         logger.info("Found %d doctors, starting call loop", len(doctors))
         constraints = _constraints_for_request(user, request)
+
+        # Store per-call state for the voice prompt
+        from infrastructure.voice.call_session import (
+            set_busy_intervals,
+            set_patient_name,
+        )
+
+        set_patient_name(user.name)
         if busy_intervals:
             logger.info(
                 "User has %d busy intervals — voice caller will avoid conflicts",
                 len(busy_intervals),
             )
-            # Store intervals so the voice webhook system prompt can reference them
-            from infrastructure.voice.call_session import set_busy_intervals
-
             formatted = [
                 f"{s.strftime('%a %d %b %H:%M')}–{e.strftime('%H:%M')}"
                 for s, e in busy_intervals
             ]
             set_busy_intervals(formatted)
         else:
-            from infrastructure.voice.call_session import set_busy_intervals
-
             set_busy_intervals([])
         outcome = await self._voice_caller.book_first_available(
             doctors,

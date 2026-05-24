@@ -39,14 +39,19 @@ async def chat_completions(request: Request) -> StreamingResponse:
     messages = body.get("messages", [])
     stream_requested = body.get("stream", False)
 
-    # Get the specialty and busy intervals from the active call session
-    from infrastructure.voice.call_session import get_active_specialty, get_busy_intervals
+    # Get per-call state from the active call session
+    from infrastructure.voice.call_session import (
+        get_active_specialty,
+        get_busy_intervals,
+        get_patient_name,
+    )
 
     specialty = get_active_specialty()
     busy_intervals = get_busy_intervals()
+    patient_name = get_patient_name()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
-    system_prompt = _get_booking_system_prompt(specialty, busy_intervals)
+    system_prompt = _get_booking_system_prompt(specialty, busy_intervals, patient_name)
     conversation_messages = []
     for msg in messages:
         if msg["role"] == "system":
@@ -93,7 +98,11 @@ async def _stream_claude_as_openai(
     system_prompt: str,
     messages: list[dict],
 ):
-    """Stream Claude response formatted as OpenAI SSE chunks."""
+    """Stream Claude response formatted as OpenAI SSE chunks.
+
+    Also accumulates the full response to detect booking keywords
+    (CITA_CONFIRMADA / SIN_DISPONIBILIDAD) and resolve the active call.
+    """
     chat_id = f"chatcmpl-{uuid.uuid4().hex[:24]}"
     created = int(time.time())
 
@@ -113,6 +122,7 @@ async def _stream_claude_as_openai(
     }
     yield f"data: {json.dumps(initial_chunk)}\n\n"
 
+    accumulated_text = ""
     async with client.messages.stream(
         model="claude-sonnet-4-20250514",
         max_tokens=300,
@@ -120,6 +130,7 @@ async def _stream_claude_as_openai(
         messages=messages,
     ) as stream:
         async for text in stream.text_stream:
+            accumulated_text += text
             chunk = {
                 "id": chat_id,
                 "object": "chat.completion.chunk",
@@ -134,6 +145,9 @@ async def _stream_claude_as_openai(
                 ],
             }
             yield f"data: {json.dumps(chunk)}\n\n"
+
+    # Check for booking outcome keywords and resolve the active call
+    _check_booking_outcome(accumulated_text)
 
     # Final chunk
     final_chunk = {
@@ -234,25 +248,67 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
 
 @router.post("/webhooks/voice/status")
 async def voice_status(request: Request) -> Response:
-    """Handle Twilio call status callbacks."""
+    """Handle Twilio call status callbacks.
+
+    When the call ends (completed/busy/no-answer/failed), resolve the
+    active call if it hasn't been resolved yet — this prevents the
+    120-second timeout from firing and re-dialling the next doctor.
+    """
     form = await request.form()
     call_sid = str(form.get("CallSid", ""))
     call_status = str(form.get("CallStatus", ""))
 
     logger.info("Call status update: sid=%s status=%s", call_sid, call_status)
 
+    if call_status in ("completed", "busy", "no-answer", "failed", "canceled"):
+        from infrastructure.voice.call_session import resolve_active_if_pending
+
+        resolve_active_if_pending(
+            reason=f"call_{call_status}",
+        )
+
     return Response(content="", status_code=204)
 
 
-def _get_booking_system_prompt(specialty: str = "", busy_intervals: list[str] | None = None) -> str:
+def _check_booking_outcome(text: str) -> None:
+    """Detect CITA_CONFIRMADA / SIN_DISPONIBILIDAD in Claude's response
+    and resolve the active call so the booking loop knows immediately."""
+    from infrastructure.voice.call_session import resolve_active_if_pending
+
+    upper = text.upper()
+    if "CITA_CONFIRMADA" in upper:
+        logger.info("Booking keyword CITA_CONFIRMADA detected in response")
+        # Extract date/time text after the keyword for logging
+        idx = upper.index("CITA_CONFIRMADA")
+        date_hint = text[idx + len("CITA_CONFIRMADA"):].strip()[:80]
+        resolve_active_if_pending(
+            reason=None,
+            success=True,
+            date_hint=date_hint,
+        )
+    elif "SIN DISPONIBILIDAD" in upper or "SIN_DISPONIBILIDAD" in upper:
+        logger.info("Booking keyword SIN_DISPONIBILIDAD detected in response")
+        resolve_active_if_pending(reason="no_availability")
+
+
+def _get_booking_system_prompt(
+    specialty: str = "",
+    busy_intervals: list[str] | None = None,
+    patient_name: str = "",
+) -> str:
     specialty_line = (
         f"La especialidad que necesitas es: {specialty}.\n"
         if specialty
         else ""
     )
+    patient_line = (
+        f"El nombre del paciente es: {patient_name}.\n"
+        if patient_name
+        else ""
+    )
     busy_line = ""
     if busy_intervals:
-        busy_list = "; ".join(busy_intervals[:20])  # Limit to avoid prompt bloat
+        busy_list = "; ".join(busy_intervals[:20])
         busy_line = (
             f"\n\nIMPORTANTE — HORARIOS NO DISPONIBLES DEL PACIENTE:\n"
             f"El paciente tiene compromisos en estos horarios: {busy_list}.\n"
@@ -265,16 +321,17 @@ def _get_booking_system_prompt(specialty: str = "", busy_intervals: list[str] | 
         "para agendar citas EN NOMBRE DE UN PACIENTE. Hablas en español de "
         "forma clara, profesional y cortés. Tú eres QUIEN LLAMA, no la "
         "recepcionista. Tu objetivo es:\n"
-        "1. Identificarte como asistente del paciente.\n"
+        f"1. Identificarte como asistente del paciente. {patient_line}"
         f"2. Pedir disponibilidad para la especialidad. {specialty_line}"
         "3. Si hay disponibilidad, confirmar fecha y hora.\n"
-        "4. Agradecer y despedirte.\n\n"
+        "4. Dar el nombre completo del paciente para que la clínica registre la cita.\n"
+        "5. Agradecer y despedirte.\n\n"
         "Si la recepcionista dice que no hay disponibilidad, agradece "
         "amablemente y despídete. Sé conciso y natural — estás al teléfono.\n\n"
         "IMPORTANTE: Cuando consigas confirmar una cita, incluye en tu "
         "última respuesta la palabra CITA_CONFIRMADA seguida de la fecha y "
         "hora. Ejemplo: 'Perfecto, CITA_CONFIRMADA martes 27 de mayo a las "
         "10:00. Muchas gracias.'\n\n"
-        "Si no hay disponibilidad, di SIN DISPONIBILIDAD antes de despedirte."
+        "Si no hay disponibilidad, di SIN_DISPONIBILIDAD antes de despedirte."
         + busy_line
     )

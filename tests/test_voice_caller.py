@@ -228,6 +228,170 @@ class TestSpeechEngineHandler:
         assert reason == "conversation_unclear"
 
 
+class TestResolveActiveIfPending:
+    """Tests for resolve_active_if_pending call resolution."""
+
+    def test_resolve_success_on_cita_confirmada(self):
+        """CITA_CONFIRMADA resolves the active call as success."""
+        doctor = _make_doctor()
+        user = _make_user()
+        ctx = call_session_mod.CallContext(
+            call_id="test-1",
+            doctor=doctor,
+            user=user,
+            constraints=AvailabilityWindow(),
+        )
+        call_session_mod._active_calls.clear()
+        call_session_mod.register_call("test-1", ctx)
+
+        call_session_mod.resolve_active_if_pending(
+            success=True, date_hint="martes 27 a las 10:00"
+        )
+
+        assert ctx.outcome_event.is_set()
+        assert ctx.outcome is not None
+        assert ctx.outcome.success is True
+        assert ctx.outcome.slot is not None
+
+    def test_resolve_failure_on_sin_disponibilidad(self):
+        """SIN_DISPONIBILIDAD resolves the active call as failure."""
+        doctor = _make_doctor()
+        user = _make_user()
+        ctx = call_session_mod.CallContext(
+            call_id="test-2",
+            doctor=doctor,
+            user=user,
+            constraints=AvailabilityWindow(),
+        )
+        call_session_mod._active_calls.clear()
+        call_session_mod.register_call("test-2", ctx)
+
+        call_session_mod.resolve_active_if_pending(reason="no_availability")
+
+        assert ctx.outcome_event.is_set()
+        assert ctx.outcome is not None
+        assert ctx.outcome.success is False
+        assert ctx.outcome.reason == "no_availability"
+
+    def test_noop_when_no_active_calls(self):
+        """Does nothing when no calls are active."""
+        call_session_mod._active_calls.clear()
+        call_session_mod.resolve_active_if_pending(reason="test")
+        # No error raised
+
+    def test_noop_when_already_resolved(self):
+        """Does nothing if the call was already resolved."""
+        doctor = _make_doctor()
+        user = _make_user()
+        ctx = call_session_mod.CallContext(
+            call_id="test-3",
+            doctor=doctor,
+            user=user,
+            constraints=AvailabilityWindow(),
+        )
+        call_session_mod._active_calls.clear()
+        call_session_mod.register_call("test-3", ctx)
+        ctx.outcome_event.set()  # simulate already resolved
+
+        call_session_mod.resolve_active_if_pending(
+            success=True, date_hint="test"
+        )
+        assert ctx.outcome is None  # unchanged
+
+
+class TestCheckBookingOutcome:
+    """Tests for _check_booking_outcome keyword detection."""
+
+    def test_detects_cita_confirmada(self):
+        from interfaces.webhooks.voice_webhook import _check_booking_outcome
+
+        doctor = _make_doctor()
+        ctx = call_session_mod.CallContext(
+            call_id="test-kw1",
+            doctor=doctor,
+            user=_make_user(),
+            constraints=AvailabilityWindow(),
+        )
+        call_session_mod._active_calls.clear()
+        call_session_mod.register_call("test-kw1", ctx)
+
+        _check_booking_outcome(
+            "Perfecto, CITA_CONFIRMADA martes 27 de mayo a las 10:00."
+        )
+
+        assert ctx.outcome_event.is_set()
+        assert ctx.outcome is not None
+        assert ctx.outcome.success is True
+
+    def test_detects_sin_disponibilidad(self):
+        from interfaces.webhooks.voice_webhook import _check_booking_outcome
+
+        doctor = _make_doctor()
+        ctx = call_session_mod.CallContext(
+            call_id="test-kw2",
+            doctor=doctor,
+            user=_make_user(),
+            constraints=AvailabilityWindow(),
+        )
+        call_session_mod._active_calls.clear()
+        call_session_mod.register_call("test-kw2", ctx)
+
+        _check_booking_outcome(
+            "Lo siento, SIN_DISPONIBILIDAD esta semana."
+        )
+
+        assert ctx.outcome_event.is_set()
+        assert ctx.outcome is not None
+        assert ctx.outcome.success is False
+
+    def test_no_keyword_does_nothing(self):
+        from interfaces.webhooks.voice_webhook import _check_booking_outcome
+
+        doctor = _make_doctor()
+        ctx = call_session_mod.CallContext(
+            call_id="test-kw3",
+            doctor=doctor,
+            user=_make_user(),
+            constraints=AvailabilityWindow(),
+        )
+        call_session_mod._active_calls.clear()
+        call_session_mod.register_call("test-kw3", ctx)
+
+        _check_booking_outcome("Buenos días, ¿cuál es la disponibilidad?")
+
+        assert not ctx.outcome_event.is_set()
+        assert ctx.outcome is None
+
+
+class TestBookingSystemPrompt:
+    """Tests for _get_booking_system_prompt with patient name and busy intervals."""
+
+    def test_includes_patient_name(self):
+        from interfaces.webhooks.voice_webhook import _get_booking_system_prompt
+
+        prompt = _get_booking_system_prompt(
+            specialty="PSICOLOGIA",
+            patient_name="Antonella Masini",
+        )
+        assert "Antonella Masini" in prompt
+
+    def test_includes_busy_intervals(self):
+        from interfaces.webhooks.voice_webhook import _get_booking_system_prompt
+
+        prompt = _get_booking_system_prompt(
+            specialty="PSICOLOGIA",
+            busy_intervals=["Mon 26 May 10:00–11:00", "Tue 27 May 15:00–16:00"],
+        )
+        assert "Mon 26 May 10:00–11:00" in prompt
+        assert "45 minutos" in prompt
+
+    def test_includes_specialty(self):
+        from interfaces.webhooks.voice_webhook import _get_booking_system_prompt
+
+        prompt = _get_booking_system_prompt(specialty="DERMATOLOGIA")
+        assert "DERMATOLOGIA" in prompt
+
+
 class TestVoiceWebhook:
     """Tests for the voice webhook endpoints."""
 

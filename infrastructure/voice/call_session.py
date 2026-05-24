@@ -35,11 +35,9 @@ class CallContext:
 # (ElevenLabs' conversation identifier returned on the /ws session).
 _active_calls: dict[str, CallContext] = {}
 
-# Specialty for the current active call (simple approach since calls are sequential).
+# Per-call state (simple approach since calls are sequential).
 _active_specialty: str = ""
-
-# Busy intervals for the current active call (passed to system prompt so Claude
-# avoids booking during these times). Format: list of (start_iso, end_iso) strings.
+_active_patient_name: str = ""
 _active_busy_intervals: list[str] = []
 
 
@@ -50,6 +48,15 @@ def set_active_specialty(conversation_id: str, specialty: str) -> None:
 
 def get_active_specialty() -> str:
     return _active_specialty
+
+
+def set_patient_name(name: str) -> None:
+    global _active_patient_name
+    _active_patient_name = name
+
+
+def get_patient_name() -> str:
+    return _active_patient_name
 
 
 def set_busy_intervals(intervals: list[str]) -> None:
@@ -75,6 +82,48 @@ def resolve_call(call_id: str, outcome: CallOutcome) -> None:
     if ctx:
         ctx.outcome = outcome
         ctx.outcome_event.set()
+
+
+def resolve_active_if_pending(
+    *,
+    reason: str | None = None,
+    success: bool = False,
+    date_hint: str = "",
+) -> None:
+    """Resolve the single active call (calls are sequential).
+
+    Called from the chat-completions stream when CITA_CONFIRMADA or
+    SIN_DISPONIBILIDAD is detected, or from the Twilio status callback
+    when the call ends.
+    """
+    if not _active_calls:
+        return
+    call_id, ctx = next(iter(_active_calls.items()))
+    if ctx.outcome_event.is_set():
+        return  # already resolved
+
+    from domain.value_objects.time_slot import TimeSlot
+
+    slot = None
+    if success:
+        from datetime import datetime
+
+        slot = TimeSlot(start=datetime.utcnow(), duration_minutes=30)
+        logger.info(
+            "Resolving call %s as SUCCESS (date_hint=%s)",
+            call_id,
+            date_hint,
+        )
+    else:
+        logger.info("Resolving call %s as FAILED (reason=%s)", call_id, reason)
+
+    outcome = CallOutcome(
+        doctor=ctx.doctor,
+        success=success,
+        slot=slot,
+        reason=reason,
+    )
+    resolve_call(call_id, outcome)
 
 
 async def run_call_session(
