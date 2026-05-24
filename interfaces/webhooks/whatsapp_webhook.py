@@ -11,8 +11,10 @@ processing in the background.
 Routing precedence:
   1. If someone in this process is waiting for an OTP for this phone, treat
      the body as an OTP reply.
-  2. If the phone is registered (User row exists), route to the booking flow.
-  3. Otherwise, route through the onboarding state machine.
+  2. If there's a pending gender question for this phone, treat the body
+     as the gender preference reply.
+  3. If the phone is registered (User row exists), route to the booking flow.
+  4. Otherwise, route through the onboarding state machine.
 """
 from __future__ import annotations
 
@@ -20,11 +22,12 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Form, Response
 
-from application.book_appointment import BookAppointmentUseCase
+from application.book_appointment import AppointmentRequest, BookAppointmentUseCase
 from application.handle_otp import HandleOTPUseCase
 from application.intent_parser import parse_appointment_intent
 from application.onboarding import OnboardingStateMachine
 from application.ports import BaseMessagingClient, BaseOTPRelay
+from domain.entities.user import User
 from domain.repositories.user_repository import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -42,6 +45,10 @@ def build_whatsapp_router(
     calendar_auth_url: str = "",
 ) -> APIRouter:
     router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+    # Pending gender preference questions, keyed by phone number.
+    # Stores (User, AppointmentRequest) while we wait for the user's reply.
+    pending_gender: dict[str, tuple[User, AppointmentRequest]] = {}
 
     @router.post("/whatsapp")
     async def whatsapp_inbound(
@@ -67,7 +74,18 @@ def build_whatsapp_router(
                 )
             return _twiml()
 
-        # 2) Registered user → booking flow.
+        # 2) Pending gender preference question for this phone.
+        if phone in pending_gender:
+            user, req = pending_gender.pop(phone)
+            gender = _parse_gender_reply(body)
+            if gender == "skip":
+                background.add_task(book_use_case.execute, user, req)
+            else:
+                req = _with_gender(req, gender)
+                background.add_task(book_use_case.execute, user, req)
+            return _twiml()
+
+        # 3) Registered user → booking flow.
         user = await user_repo.get_by_phone(phone)
         if user is not None:
             # Handle "connect calendar" command
@@ -92,7 +110,15 @@ def build_whatsapp_router(
                     "'I need a dermatologo', etc.",
                 )
                 return _twiml()
-            background.add_task(book_use_case.execute, user, req)
+
+            # Ask gender preference before proceeding
+            pending_gender[phone] = (user, req)
+            background.add_task(
+                whatsapp.send_text,
+                phone,
+                "Do you have a preference for the doctor's gender?\n"
+                'Reply: "female", "male", or "no preference"',
+            )
             return _twiml()
 
         # 3) New user → onboarding state machine.
@@ -117,3 +143,40 @@ def _is_calendar_command(body: str) -> bool:
     """Check if the message is a request to connect Google Calendar."""
     lower = body.lower().strip()
     return lower in _CALENDAR_KEYWORDS
+
+
+_FEMALE_KEYWORDS: tuple[str, ...] = (
+    "female", "woman", "doctora", "mujer", "f",
+)
+_MALE_KEYWORDS: tuple[str, ...] = (
+    "male", "man", "doctor", "hombre", "m",
+)
+_NO_PREF_KEYWORDS: tuple[str, ...] = (
+    "no", "no preference", "sin preferencia", "da igual",
+    "cualquiera", "indiferente", "either", "any",
+)
+
+
+def _parse_gender_reply(body: str) -> str | None:
+    """Interpret the user's reply to the gender preference question.
+
+    Returns 'female', 'male', 'skip' (no preference), or None.
+    """
+    lower = body.lower().strip()
+    if any(kw == lower or kw in lower.split() for kw in _FEMALE_KEYWORDS):
+        return "female"
+    if any(kw == lower or kw in lower.split() for kw in _MALE_KEYWORDS):
+        return "male"
+    if any(kw in lower for kw in _NO_PREF_KEYWORDS):
+        return "skip"
+    # Default: treat unrecognized reply as no preference
+    return "skip"
+
+
+def _with_gender(req: AppointmentRequest, gender: str | None) -> AppointmentRequest:
+    """Return a copy of the request with gender_preference set."""
+    import dataclasses
+
+    if gender and gender != "skip":
+        return dataclasses.replace(req, gender_preference=gender)
+    return req

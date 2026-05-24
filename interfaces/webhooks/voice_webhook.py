@@ -43,6 +43,7 @@ async def chat_completions(request: Request) -> StreamingResponse:
     from infrastructure.voice.call_session import (
         get_active_specialty,
         get_busy_intervals,
+        get_doctor_gender,
         get_max_weeks_out,
         get_patient_name,
     )
@@ -51,10 +52,11 @@ async def chat_completions(request: Request) -> StreamingResponse:
     busy_intervals = get_busy_intervals()
     patient_name = get_patient_name()
     max_weeks_out = get_max_weeks_out()
+    doctor_gender = get_doctor_gender()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
     system_prompt = _get_booking_system_prompt(
-        specialty, busy_intervals, patient_name, max_weeks_out
+        specialty, busy_intervals, patient_name, max_weeks_out, doctor_gender
     )
     conversation_messages = []
     for msg in messages:
@@ -305,17 +307,58 @@ def _check_booking_outcome(text: str) -> None:
         resolve_active_if_pending(reason="no_availability")
 
 
+# Map from canonical Cigna specialty name to (feminine, masculine) forms
+# for use in the voice prompt.  Only specialties likely to appear in the
+# hackathon demo need entries here; others fall back to the raw name.
+_GENDERED_SPECIALTIES: dict[str, tuple[str, str]] = {
+    "PSICOLOGIA": ("psicóloga", "psicólogo"),
+    "DERMATOLOGÍA": ("dermatóloga", "dermatólogo"),
+    "CARDIOLOGÍA": ("cardióloga", "cardiólogo"),
+    "NEUROLOGÍA": ("neuróloga", "neurólogo"),
+    "OBSTETRICIA Y GINECOLOGÍA": ("ginecóloga", "ginecólogo"),
+    "PEDIATRÍA": ("pediatra", "pediatra"),
+    "OFTALMOLOGÍA": ("oftalmóloga", "oftalmólogo"),
+    "TRAUMATOLOGÍA": ("traumatóloga", "traumatólogo"),
+    "ENDOCRINOLOGÍA": ("endocrinóloga", "endocrinólogo"),
+    "OTORRINOLARINGOLOGÍA": ("otorrinolaringóloga", "otorrinolaringólogo"),
+}
+
+
+def _gendered_specialty(specialty: str, gender: str) -> str:
+    """Return the gendered form of a specialty name for the voice prompt."""
+    pair = _GENDERED_SPECIALTIES.get(specialty.upper())
+    if pair is None:
+        return specialty.lower()
+    return pair[0] if gender == "female" else pair[1]
+
+
 def _get_booking_system_prompt(
     specialty: str = "",
     busy_intervals: list[str] | None = None,
     patient_name: str = "",
     max_weeks_out: int = 4,
+    doctor_gender: str = "",
 ) -> str:
-    specialty_line = (
-        f"La especialidad que necesitas es: {specialty}.\n"
-        if specialty
-        else ""
-    )
+    gender_line = ""
+    if doctor_gender and specialty:
+        gendered = _gendered_specialty(specialty, doctor_gender)
+        article = "una" if doctor_gender == "female" else "un"
+        preference_word = "una mujer" if doctor_gender == "female" else "un hombre"
+        specialty_line = (
+            f"La especialidad que necesitas es: {specialty}. "
+            f"Pide cita con {article} {gendered} (usa la forma correcta del género).\n"
+        )
+        gender_line = (
+            f"\n\nIMPORTANTE — PREFERENCIA DE GÉNERO:\n"
+            f"El/la cliente pidió específicamente por {preference_word}. "
+            f"Menciónalo a la recepcionista si es necesario.\n"
+        )
+    elif specialty:
+        specialty_line = (
+            f"La especialidad que necesitas es: {specialty}.\n"
+        )
+    else:
+        specialty_line = ""
     patient_line = (
         f"El nombre del paciente es: {patient_name}.\n"
         if patient_name
@@ -356,4 +399,5 @@ def _get_booking_system_prompt(
         "Si no hay disponibilidad, di SIN_DISPONIBILIDAD antes de despedirte."
         + busy_line
         + weeks_line
+        + gender_line
     )

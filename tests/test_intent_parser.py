@@ -262,3 +262,137 @@ class TestNoInferenceFallsBack:
         # "sin prisa especial" is not in our keyword set — intentional;
         # we'd rather miss than match too aggressively.
         assert req.max_weeks is None
+
+
+# ---- gender preference (WhatsApp follow-up reply parsing) ----
+
+class TestGenderReplyParsing:
+    """Tests for _parse_gender_reply used by the WhatsApp webhook when the
+    user responds to the 'do you prefer a male or female doctor?' question."""
+
+    def test_doctora_returns_female(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("doctora") == "female"
+
+    def test_mujer_returns_female(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("mujer") == "female"
+
+    def test_female_returns_female(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("female") == "female"
+
+    def test_doctor_returns_male(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("doctor") == "male"
+
+    def test_hombre_returns_male(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("hombre") == "male"
+
+    def test_male_returns_male(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("male") == "male"
+
+    def test_no_returns_skip(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("no") == "skip"
+
+    def test_sin_preferencia_returns_skip(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("sin preferencia") == "skip"
+
+    def test_cualquiera_returns_skip(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("cualquiera") == "skip"
+
+    def test_unrecognized_defaults_to_skip(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("blah blah") == "skip"
+
+    def test_case_insensitive(self):
+        from interfaces.webhooks.whatsapp_webhook import _parse_gender_reply
+        assert _parse_gender_reply("DOCTORA") == "female"
+        assert _parse_gender_reply("Doctor") == "male"
+
+
+# ---- gender filtering (doctor list) ----
+
+class TestDoctorGenderFiltering:
+    """Tests for _infer_doctor_gender and _filter_doctors_by_gender."""
+
+    def test_infer_female_from_soledad(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("HERMOSO IZQUIERDO, SOLEDAD") == "female"
+
+    def test_infer_female_from_maria(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("GARCÍA LÓPEZ, MARÍA") == "female"
+
+    def test_infer_female_from_iluminada(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("RUBIO, ILUMINADA") == "female"
+
+    def test_infer_female_from_ana_compound(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("ROMERO, ANA ISABEL") == "female"
+
+    def test_infer_male_from_carlos(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("FERNÁNDEZ GÓMEZ, CARLOS") == "male"
+
+    def test_infer_male_from_juan(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("MARTÍN, JUAN ANTONIO") == "male"
+
+    def test_infer_none_for_unknown_name(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("SMITH, ZXYQW") is None
+
+    def test_infer_none_for_no_comma(self):
+        from application.book_appointment import _infer_doctor_gender
+        assert _infer_doctor_gender("SINGLE NAME") is None
+
+    def test_filter_keeps_only_female(self):
+        from application.book_appointment import _filter_doctors_by_gender
+        from domain.entities.doctor import Doctor
+        from domain.value_objects.address import Address
+        from domain.value_objects.specialty import Specialty, SpecialtyType
+
+        sp = Specialty(name="PSICOLOGIA", type=SpecialtyType.SPECIALTY)
+        addr = Address(raw="C. Test, MADRID", city="MADRID", postal_code="28001")
+        d1 = Doctor(
+            clinic_id="1", practitioner_id="1", name="RUBIO, ILUMINADA",
+            specialty=sp, clinic_name="C1", address=addr, phone="911111111",
+        )
+        d2 = Doctor(
+            clinic_id="2", practitioner_id="2", name="FERNÁNDEZ, CARLOS",
+            specialty=sp, clinic_name="C2", address=addr, phone="922222222",
+        )
+        d3 = Doctor(
+            clinic_id="3", practitioner_id="3", name="GARCÍA, MARÍA",
+            specialty=sp, clinic_name="C3", address=addr, phone="933333333",
+        )
+        result = _filter_doctors_by_gender([d1, d2, d3], "female")
+        assert len(result) == 2
+        assert all(d.name in ("RUBIO, ILUMINADA", "GARCÍA, MARÍA") for d in result)
+
+    def test_filter_keeps_only_male(self):
+        from application.book_appointment import _filter_doctors_by_gender
+        from domain.entities.doctor import Doctor
+        from domain.value_objects.address import Address
+        from domain.value_objects.specialty import Specialty, SpecialtyType
+
+        sp = Specialty(name="PSICOLOGIA", type=SpecialtyType.SPECIALTY)
+        addr = Address(raw="C. Test, MADRID", city="MADRID", postal_code="28001")
+        d1 = Doctor(
+            clinic_id="1", practitioner_id="1", name="RUBIO, ILUMINADA",
+            specialty=sp, clinic_name="C1", address=addr, phone="911111111",
+        )
+        d2 = Doctor(
+            clinic_id="2", practitioner_id="2", name="FERNÁNDEZ, CARLOS",
+            specialty=sp, clinic_name="C2", address=addr, phone="922222222",
+        )
+        result = _filter_doctors_by_gender([d1, d2], "male")
+        assert len(result) == 1
+        assert result[0].name == "FERNÁNDEZ, CARLOS"
