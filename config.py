@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # --- Voice (ElevenLabs Speech Engine) ---
     elevenlabs_api_key: str = Field(default="")
-    elevenlabs_agent_id: str = Field(default="")  # Speech Engine ID (seng_...)
+    elevenlabs_agent_id: str = Field(default="")  # Agent ID (agent_... or seng_...)
     elevenlabs_phone_number_id: str = Field(default="")  # Twilio number registered in ElevenLabs
     elevenlabs_voice_id: str = Field(default="ewn5JTa3lNPY8QVuZJi6")
     elevenlabs_receptionist_voice_id: str = Field(default="YXGHKitgIMeIV5gGeQvP")

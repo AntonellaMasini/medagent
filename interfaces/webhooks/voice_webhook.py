@@ -1,35 +1,177 @@
-"""ElevenLabs Speech Engine WebSocket handler.
+"""ElevenLabs Custom LLM endpoint + legacy handlers.
 
 Endpoints:
-  WS   /ws  — ElevenLabs connects here when a call starts. We receive
-       transcripts and respond with Claude (Anthropic) for the booking
-       conversation.
-  POST /webhooks/voice/status — Twilio status callback (kept for graceful
-       handling of call-level events like busy/no-answer).
+  POST /v1/chat/completions — OpenAI-compatible endpoint that ElevenLabs
+       calls with conversation transcripts. We forward to Claude and stream
+       back in OpenAI SSE format.
+  WS   /ws  — Speech Engine WebSocket handler (alternative transport).
+  POST /webhooks/voice/status — Twilio status callback.
 """
 from __future__ import annotations
 
+import json
 import logging
+import time
+import uuid
 
 from fastapi import APIRouter, Request, WebSocket
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
+@router.post("/v1/chat/completions")
+async def chat_completions(request: Request) -> StreamingResponse:
+    """OpenAI-compatible Chat Completions endpoint for ElevenLabs Custom LLM.
+
+    ElevenLabs sends the conversation transcript in OpenAI format.
+    We forward to Claude (Anthropic) and stream back in OpenAI SSE format.
+    """
+    import anthropic
+
+    from config import get_settings
+
+    settings = get_settings()
+    body = await request.json()
+
+    messages = body.get("messages", [])
+    stream_requested = body.get("stream", False)
+
+    # Extract system message if present, pass rest as conversation
+    system_prompt = _get_booking_system_prompt()
+    conversation_messages = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system_prompt = msg["content"]
+        else:
+            conversation_messages.append(
+                {"role": msg["role"], "content": msg["content"]}
+            )
+
+    # Ensure messages alternate correctly for Claude
+    if not conversation_messages:
+        conversation_messages = [{"role": "user", "content": "Hola"}]
+
+    logger.info(
+        "Chat completions request (%d messages, stream=%s)",
+        len(conversation_messages),
+        stream_requested,
+    )
+
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+    if stream_requested:
+        return StreamingResponse(
+            _stream_claude_as_openai(client, system_prompt, conversation_messages),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        )
+    else:
+        response = await client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=300,
+            system=system_prompt,
+            messages=conversation_messages,
+        )
+        text = response.content[0].text
+        return _make_openai_response(text)
+
+
+async def _stream_claude_as_openai(
+    client,
+    system_prompt: str,
+    messages: list[dict],
+):
+    """Stream Claude response formatted as OpenAI SSE chunks."""
+    chat_id = f"chatcmpl-{uuid.uuid4().hex[:24]}"
+    created = int(time.time())
+
+    # Initial chunk with role
+    initial_chunk = {
+        "id": chat_id,
+        "object": "chat.completion.chunk",
+        "created": created,
+        "model": "claude-sonnet-4-20250514",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {"role": "assistant", "content": ""},
+                "finish_reason": None,
+            }
+        ],
+    }
+    yield f"data: {json.dumps(initial_chunk)}\n\n"
+
+    async with client.messages.stream(
+        model="claude-sonnet-4-20250514",
+        max_tokens=300,
+        system=system_prompt,
+        messages=messages,
+    ) as stream:
+        async for text in stream.text_stream:
+            chunk = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": "claude-sonnet-4-20250514",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": text},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    # Final chunk
+    final_chunk = {
+        "id": chat_id,
+        "object": "chat.completion.chunk",
+        "created": created,
+        "model": "claude-sonnet-4-20250514",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+    yield f"data: {json.dumps(final_chunk)}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+def _make_openai_response(text: str) -> Response:
+    """Format a non-streaming response in OpenAI format."""
+    body = {
+        "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": "claude-sonnet-4-20250514",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+    return Response(
+        content=json.dumps(body),
+        media_type="application/json",
+    )
+
+
 @router.websocket("/ws")
 async def speech_engine_ws(websocket: WebSocket) -> None:
-    """Handle ElevenLabs Speech Engine WebSocket connections.
-
-    ElevenLabs connects here when a call is in progress. Each connection
-    represents one conversation. We receive user transcripts and stream
-    Claude's responses back via session.send_response().
-
-    The SDK's SpeechEngineSession natively supports FastAPI WebSockets
-    (it detects receive_text/send_text and wraps automatically).
-    """
+    """Handle ElevenLabs Speech Engine WebSocket connections (alternative)."""
     await websocket.accept()
 
     from config import get_settings
@@ -40,7 +182,6 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
     session = SpeechEngineSession(websocket, debug=True)
 
     async def on_transcript(transcript: list) -> None:
-        """Called each time the user finishes a turn."""
         import anthropic
 
         messages = []
