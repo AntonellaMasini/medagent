@@ -322,12 +322,6 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
     settings = get_settings()
     iface = TwilioAudioInterface()
 
-    patient = get_patient_name() or "el paciente"
-    first_msg = (
-        f"Hola, buenos días. Soy el asistente de {patient}. "
-        "Llamo para consultar si tienen disponibilidad para una cita, por favor."
-    )
-
     el_client = ElevenLabs(api_key=settings.elevenlabs_api_key)
     conversation = Conversation(
         el_client,
@@ -335,8 +329,8 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
         requires_auth=True,
         audio_interface=iface,
         config=ConversationInitiationData(
-            conversation_config_override={
-                "agent": {"first_message": first_msg},
+            dynamic_variables={
+                "patient_name": get_patient_name() or "el paciente",
             },
         ),
         callback_agent_response=lambda resp: logger.info(

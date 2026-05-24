@@ -44,6 +44,7 @@ def main() -> None:
         sys.exit(1)
 
     from elevenlabs import ElevenLabs
+    from elevenlabs.types.conversation_config_input import ConversationConfigInput
     from elevenlabs.types.speech_engine_config import SpeechEngineConfig
     from elevenlabs.types.tts_conversational_config_input import (
         TtsConversationalConfigInput,
@@ -59,6 +60,15 @@ def main() -> None:
         model_id="eleven_flash_v2_5",
     )
 
+    # First message spoken by the bot when the call connects.
+    # Uses {{patient_name}} dynamic variable filled at call time.
+    conv_config = ConversationConfigInput(
+        first_message=(
+            "Hola, buenos días. Soy el asistente de {{patient_name}}. "
+            "Llamo para consultar si tienen disponibilidad para una cita, por favor."
+        ),
+    )
+
     if existing_id and existing_id.startswith("seng_"):
         # --- Update existing Speech Engine ---
         print(f"Updating Speech Engine '{existing_id}' with ws_url={args.ws_url}")
@@ -67,6 +77,7 @@ def main() -> None:
             name=args.name,
             speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
             tts=tts_config,
+            conversation=conv_config,
             language="es",
         )
         engine_id = engine.engine_id
@@ -79,6 +90,7 @@ def main() -> None:
             name=args.name,
             speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
             tts=tts_config,
+            conversation=conv_config,
             language="es",
         )
         engine_id = engine.engine_id
