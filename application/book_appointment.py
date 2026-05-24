@@ -27,6 +27,7 @@ class AppointmentRequest:
     specialty: Specialty
     raw_query: str  # original user message, for context
     max_weeks: int | None = None  # per-request urgency override; None → use user.availability.max_weeks_out
+    gender_preference: str | None = None  # "female", "male", or None (no preference)
 
 
 class BookAppointmentUseCase:
@@ -85,18 +86,37 @@ class BookAppointmentUseCase:
             )
             return None
 
+        # Filter doctors by gender preference if specified
+        if request.gender_preference:
+            filtered = _filter_doctors_by_gender(doctors, request.gender_preference)
+            if filtered:
+                logger.info(
+                    "Gender filter (%s): %d → %d doctors",
+                    request.gender_preference,
+                    len(doctors),
+                    len(filtered),
+                )
+                doctors = filtered
+            else:
+                logger.warning(
+                    "Gender filter (%s) would remove all doctors — keeping full list",
+                    request.gender_preference,
+                )
+
         logger.info("Found %d doctors, starting call loop", len(doctors))
         constraints = _constraints_for_request(user, request)
 
         # Store per-call state for the voice prompt
         from infrastructure.voice.call_session import (
             set_busy_intervals,
+            set_doctor_gender,
             set_max_weeks_out,
             set_patient_name,
         )
 
         set_patient_name(user.name)
         set_max_weeks_out(constraints.max_weeks_out)
+        set_doctor_gender(request.gender_preference or "")
         if busy_intervals:
             logger.info(
                 "User has %d busy intervals — voice caller will avoid conflicts",
@@ -233,3 +253,68 @@ def _format_busy_interval(s, e) -> str:
     if s.hour == 0 and s.minute == 0 and e.hour == 0 and e.minute == 0:
         return f"{s.strftime('%a %d %b')} TODO EL DÍA (ocupado)"
     return f"{s.strftime('%a %d %b %H:%M')}–{e.strftime('%H:%M')}"
+
+
+# Common Spanish female first names (uppercase, no accents needed — names
+# from Cigna's API are already uppercased).
+_FEMALE_NAMES: frozenset[str] = frozenset({
+    "MARÍA", "MARIA", "CARMEN", "ANA", "ROSA", "ISABEL", "SOLEDAD",
+    "LAURA", "TERESA", "ELENA", "MARTA", "CRISTINA", "PATRICIA",
+    "PILAR", "BEATRIZ", "LUCÍA", "LUCIA", "ALICIA", "RAQUEL",
+    "SUSANA", "SILVIA", "NURIA", "IRENE", "SARA", "ALBA",
+    "PAULA", "SONIA", "NATALIA", "ROCÍO", "ROCIO", "ANDREA",
+    "MARINA", "INÉS", "INES", "CONSUELO", "DOLORES", "INMACULADA",
+    "PALOMA", "VERÓNICA", "VERONICA", "VANESSA", "MÓNICA", "MONICA",
+    "ESTHER", "EVA", "OLGA", "LOURDES", "AMPARO", "ILUMINADA",
+    "YOLANDA", "JULIA", "VICTORIA", "CLAUDIA", "CAROLINA",
+    "ALMUDENA", "BLANCA", "DIANA", "VIRGINIA", "MARGARITA",
+    "CONCEPCIÓN", "CONCEPCION", "MERCEDES", "ANTONIA", "EMILIA",
+    "CLARA", "SOFÍA", "SOFIA", "EMMA", "MIRIAM", "NOELIA",
+    "LORENA", "SANDRA", "FÁTIMA", "FATIMA", "ADRIANA",
+    "ESMERALDA", "BEGOÑA", "BEGONA", "ALEJANDRA", "NEREA",
+    "LARA", "REBECA", "LETICIA", "REMEDIOS", "JOSEFA", "JUANA",
+    "ÁNGELA", "ANGELA", "CELIA", "ROSARIO", "ASUNCIÓN", "ASUNCION",
+})
+
+_MALE_NAMES: frozenset[str] = frozenset({
+    "CARLOS", "PEDRO", "JUAN", "LUIS", "JOSÉ", "JOSE", "FRANCISCO",
+    "MIGUEL", "ANTONIO", "JAVIER", "DAVID", "MANUEL", "RAFAEL",
+    "FERNANDO", "JORGE", "PABLO", "ALBERTO", "ALEJANDRO", "SERGIO",
+    "ANDRÉS", "ANDRES", "RAMÓN", "RAMON", "DIEGO", "ENRIQUE",
+    "RICARDO", "EMILIO", "ÁNGEL", "ANGEL", "SANTIAGO", "VÍCTOR",
+    "VICTOR", "EDUARDO", "ROBERTO", "IGNACIO", "ÁLVARO", "ALVARO",
+    "HÉCTOR", "HECTOR", "TOMÁS", "TOMAS", "IVÁN", "IVAN",
+    "GONZALO", "RUBÉN", "RUBEN", "RAÚL", "RAUL", "ADRIÁN", "ADRIAN",
+    "GUILLERMO", "JESÚS", "JESUS", "DANIEL", "MARCOS", "MARTÍN",
+    "MARTIN", "JAIME", "ALFREDO", "FÉLIX", "FELIX", "AGUSTÍN",
+    "AGUSTIN", "BERNARDO", "GABRIEL",
+})
+
+
+def _infer_doctor_gender(name: str) -> str | None:
+    """Infer gender from a Cigna doctor name like 'HERMOSO IZQUIERDO, SOLEDAD'.
+
+    Returns 'female', 'male', or None if we can't tell.
+    """
+    parts = name.split(",")
+    if len(parts) < 2:
+        return None
+    first_name_part = parts[1].strip().split()[0] if parts[1].strip() else ""
+    if not first_name_part:
+        return None
+    if first_name_part in _FEMALE_NAMES:
+        return "female"
+    if first_name_part in _MALE_NAMES:
+        return "male"
+    return None
+
+
+def _filter_doctors_by_gender(
+    doctors: list,
+    preference: str,
+) -> list:
+    """Keep only doctors whose inferred gender matches the preference."""
+    return [
+        d for d in doctors
+        if _infer_doctor_gender(d.name) == preference
+    ]

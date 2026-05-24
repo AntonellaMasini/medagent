@@ -205,18 +205,37 @@ class TestOTPWaitActive:
 class TestNoOTPWait:
     """is_waiting=False branch — normal routing."""
 
-    def test_registered_user_with_specialty_routes_to_booking(self):
-        client, _, _, _, onboarding, book = _make_app(
+    def test_registered_user_with_specialty_asks_gender_then_books(self):
+        client, wa, _, _, onboarding, book = _make_app(
             waiting=False, registered=True
         )
-        # Spanish input — English aliases are deferred to the LLM matcher (#15)
+        # First message: specialty detected → gender question sent
         r = _post(client, "necesito un psicólogo")
+        assert r.status_code == 200
+        assert book.calls == []  # not yet — waiting for gender reply
+        assert any("preference" in b.lower() or "gender" in b.lower()
+                   for _, b in wa.sent)
+
+        # Second message: gender reply → booking kicks off
+        r = _post(client, "doctora")
         assert r.status_code == 200
         assert len(book.calls) == 1
         user, req = book.calls[0]
         assert user.phone == "+34600000001"
         assert req.specialty.name == "PSICOLOGIA"
+        assert req.gender_preference == "female"
         assert onboarding.calls == []
+
+    def test_registered_user_no_preference_proceeds(self):
+        client, _, _, _, _, book = _make_app(
+            waiting=False, registered=True
+        )
+        _post(client, "necesito un psicólogo")
+        r = _post(client, "no")
+        assert r.status_code == 200
+        assert len(book.calls) == 1
+        _, req = book.calls[0]
+        assert req.gender_preference is None
 
     def test_registered_user_no_specialty_gets_hint(self):
         client, wa, _, _, _, book = _make_app(waiting=False, registered=True)
