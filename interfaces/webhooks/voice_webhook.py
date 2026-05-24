@@ -38,7 +38,11 @@ async def chat_completions(request: Request) -> StreamingResponse:
 
     messages = body.get("messages", [])
     stream_requested = body.get("stream", False)
-    specialty = body.get("specialty", "")
+
+    # Get the specialty from the active call session
+    from infrastructure.voice.call_session import get_active_specialty
+
+    specialty = get_active_specialty()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
     system_prompt = _get_booking_system_prompt(specialty)

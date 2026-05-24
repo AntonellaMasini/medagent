@@ -35,6 +35,18 @@ class CallContext:
 # (ElevenLabs' conversation identifier returned on the /ws session).
 _active_calls: dict[str, CallContext] = {}
 
+# Specialty for the current active call (simple approach since calls are sequential).
+_active_specialty: str = ""
+
+
+def set_active_specialty(conversation_id: str, specialty: str) -> None:
+    global _active_specialty
+    _active_specialty = specialty
+
+
+def get_active_specialty() -> str:
+    return _active_specialty
+
 
 def register_call(call_id: str, ctx: CallContext) -> None:
     _active_calls[call_id] = ctx
@@ -82,18 +94,17 @@ async def run_call_session(
     register_call(call_id, ctx)
 
     try:
-        from elevenlabs.types import ConversationInitiationClientDataRequestInput
-
         client = ElevenLabs(api_key=cfg.elevenlabs_api_key)
         specialty_name = doctor.specialty.name
         response = client.conversational_ai.twilio.outbound_call(
             agent_id=cfg.elevenlabs_agent_id,
             agent_phone_number_id=cfg.elevenlabs_phone_number_id,
             to_number=to_phone,
-            conversation_initiation_client_data=ConversationInitiationClientDataRequestInput(
-                custom_llm_extra_body={"specialty": specialty_name},
-            ),
         )
+        # Store specialty for the chat completions endpoint to look up
+        conv_id = getattr(response, "conversation_id", None)
+        if conv_id:
+            set_active_specialty(conv_id, specialty_name)
         logger.info(
             "ElevenLabs outbound call placed: call_id=%s → %s (response=%s)",
             call_id,
