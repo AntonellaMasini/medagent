@@ -86,19 +86,12 @@ async def run_call_session(
 
         client = ElevenLabs(api_key=cfg.elevenlabs_api_key)
         specialty_name = doctor.specialty.name
-        first_msg = (
-            f"Buenos días, llamo en nombre de un paciente para "
-            f"solicitar una cita de {specialty_name.lower()}."
-        )
         response = client.conversational_ai.twilio.outbound_call(
             agent_id=cfg.elevenlabs_agent_id,
             agent_phone_number_id=cfg.elevenlabs_phone_number_id,
             to_number=to_phone,
             conversation_initiation_client_data=ConversationInitiationClientDataRequestInput(
                 custom_llm_extra_body={"specialty": specialty_name},
-                conversation_config_override={
-                    "agent": {"first_message": first_msg}
-                },
             ),
         )
         logger.info(
