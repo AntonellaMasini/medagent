@@ -27,8 +27,14 @@ class Settings(BaseSettings):
     google_calendar_client_id: str = Field(default="")
     google_calendar_client_secret: str = Field(default="")
 
-    # --- Voice LLM (v2) ---
+    # --- Voice (ElevenLabs Speech Engine + Twilio Voice) ---
     elevenlabs_api_key: str = Field(default="")
+    elevenlabs_voice_id: str = Field(default="")
+    elevenlabs_receptionist_voice_id: str = Field(default="")
+    anthropic_api_key: str = Field(default="")
+    base_url_ws: str = Field(default="")  # ngrok WSS URL for media stream callbacks
+    demo_mode: bool = Field(default=False)
+    demo_receptionist_number: str = Field(default="")
 
     # --- App / storage ---
     database_url: str = Field(default="sqlite+aiosqlite:///./medagent.db")

@@ -162,13 +162,17 @@ class TestMinQueryLength:
         assert result is not None
         assert result.name == "OTORRINOLARINGOLOGÍA"
 
-    def test_english_sentence_returns_none_until_issue_24(self):
-        """English specialty queries should return None (not a wrong Spanish
-        match) until issue #24 ships the English alias layer."""
+    def test_english_aliases_resolve_correctly(self):
+        """Issue #24: English specialty aliases now resolve via synonym dict."""
+        # Single-word English aliases resolve
+        result = normalize_specialty("psychologist")
+        assert result is not None
+        assert result.name == "PSICOLOGIA"
+        # Full sentences still return None (catalog doesn't parse sentences)
         assert normalize_specialty("I need to see a psychiatrist") is None
         assert normalize_specialty("book me a psychologist") is None
+        # Unsupported English words still return None
         assert normalize_specialty("psychiatrist") is None
-        assert normalize_specialty("psychologist") is None
 
 
 # ---- search: type priority ----

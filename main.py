@@ -32,9 +32,14 @@ from infrastructure.persistence.sqlite_onboarding_draft_repository import (
 )
 from infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
 from infrastructure.scrapers.cigna_scraper import CignaScraper
+from infrastructure.voice.elevenlabs_voice_caller import (
+    ElevenLabsVoiceCaller,
+    VoiceCallerConfig,
+)
 from infrastructure.voice.twilio_voice_caller import StubVoiceCaller
 from interfaces.api.health import build_health_router
 from interfaces.api.setup_credentials import build_setup_credentials_router
+from interfaces.webhooks.voice_webhook import router as voice_router
 from interfaces.webhooks.whatsapp_webhook import build_whatsapp_router
 
 
@@ -71,7 +76,23 @@ def create_app() -> FastAPI:
         headless=settings.playwright_headless,
         timeout_ms=settings.playwright_timeout_ms,
     )
-    voice_caller = StubVoiceCaller()
+    # Use real voice caller if ElevenLabs + Twilio Voice are configured.
+    if settings.elevenlabs_api_key and settings.twilio_voice_number:
+        voice_caller = ElevenLabsVoiceCaller(
+            config=VoiceCallerConfig(
+                twilio_account_sid=settings.twilio_account_sid,
+                twilio_auth_token=settings.twilio_auth_token,
+                twilio_voice_number=settings.twilio_voice_number,
+                elevenlabs_api_key=settings.elevenlabs_api_key,
+                elevenlabs_voice_id=settings.elevenlabs_voice_id,
+                anthropic_api_key=settings.anthropic_api_key,
+                base_url_ws=settings.base_url_ws or settings.base_url,
+                demo_mode=settings.demo_mode,
+                demo_receptionist_number=settings.demo_receptionist_number,
+            )
+        )
+    else:
+        voice_caller = StubVoiceCaller()
 
     # ---- Use cases ----
     book_use_case = BookAppointmentUseCase(
@@ -113,6 +134,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="MedAgent", version="0.1.0", lifespan=lifespan)
     app.include_router(build_health_router())
+    app.include_router(voice_router)
     if user_repo and onboarding and setup_credentials:
         app.include_router(
             build_whatsapp_router(
