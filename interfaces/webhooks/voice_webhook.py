@@ -38,9 +38,10 @@ async def chat_completions(request: Request) -> StreamingResponse:
 
     messages = body.get("messages", [])
     stream_requested = body.get("stream", False)
+    specialty = body.get("specialty", "")
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
-    system_prompt = _get_booking_system_prompt()
+    system_prompt = _get_booking_system_prompt(specialty)
     conversation_messages = []
     for msg in messages:
         if msg["role"] == "system":
@@ -238,13 +239,19 @@ async def voice_status(request: Request) -> Response:
     return Response(content="", status_code=204)
 
 
-def _get_booking_system_prompt() -> str:
+def _get_booking_system_prompt(specialty: str = "") -> str:
+    specialty_line = (
+        f"La especialidad que necesitas es: {specialty}.\n"
+        if specialty
+        else ""
+    )
     return (
         "Eres un asistente de reservas médicas que llama a clínicas en España "
-        "para agendar citas. Hablas en español de forma clara, profesional y "
-        "cortés. Tu objetivo es:\n"
-        "1. Saludar e identificarte como asistente del paciente.\n"
-        "2. Preguntar por disponibilidad para la especialidad solicitada.\n"
+        "para agendar citas EN NOMBRE DE UN PACIENTE. Hablas en español de "
+        "forma clara, profesional y cortés. Tú eres QUIEN LLAMA, no la "
+        "recepcionista. Tu objetivo es:\n"
+        "1. Identificarte como asistente del paciente.\n"
+        f"2. Pedir disponibilidad para la especialidad. {specialty_line}"
         "3. Si hay disponibilidad, confirmar fecha y hora.\n"
         "4. Agradecer y despedirte.\n\n"
         "Si la recepcionista dice que no hay disponibilidad, agradece "
