@@ -51,7 +51,7 @@ class BookAppointmentUseCase:
         self._otp_timeout_seconds = otp_timeout_seconds
 
     async def execute(self, user: User, request: AppointmentRequest) -> Appointment | None:
-        # Prompt user to connect Google Calendar if not yet linked
+        # Block booking until Google Calendar is connected
         if (
             self._calendar
             and self._calendar_auth_url
@@ -62,11 +62,12 @@ class BookAppointmentUseCase:
             link = f"{self._calendar_auth_url}?phone={quote(user.phone, safe='')}"
             await self._whatsapp.send_text(
                 user.phone,
-                "Tip: Connect your Google Calendar so I can check your "
-                "availability and add appointments automatically:\n"
-                f"{link}\n\n"
-                "I'll start searching for clinics in the meantime.",
+                "Before I can book, I need access to your Google Calendar "
+                "so I can check your availability and avoid conflicts.\n\n"
+                f"Please connect it here:\n{link}\n\n"
+                "Once connected, send your request again and I'll get started.",
             )
+            return None
 
         await self._whatsapp.send_text(
             user.phone,
