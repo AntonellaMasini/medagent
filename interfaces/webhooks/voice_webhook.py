@@ -242,15 +242,16 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
 
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            # messages.stream() returns a context manager; we must enter it
-            # so the SDK receives an async-iterable of Anthropic stream events.
-            async with client.messages.stream(
+            response = await client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=300,
                 system=system_prompt,
                 messages=messages,
-            ) as stream:
-                await session.send_response(stream)
+            )
+            text = response.content[0].text
+            logger.info("Claude response: %s", text[:120])
+            _check_booking_outcome(text)
+            await session.send_response(text)
         except Exception:
             logger.exception("Error in on_transcript handler")
             await session.send_response(
@@ -310,12 +311,22 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
 
     from config import get_settings
     from elevenlabs import ElevenLabs
-    from elevenlabs.conversational_ai.conversation import Conversation
+    from elevenlabs.conversational_ai.conversation import (
+        Conversation,
+        ConversationInitiationData,
+    )
 
+    from infrastructure.voice.call_session import get_patient_name
     from infrastructure.voice.twilio_audio_interface import TwilioAudioInterface
 
     settings = get_settings()
     iface = TwilioAudioInterface()
+
+    patient = get_patient_name() or "el paciente"
+    first_msg = (
+        f"Hola, buenos días. Soy el asistente de {patient}. "
+        "Llamo para consultar si tienen disponibilidad para una cita, por favor."
+    )
 
     el_client = ElevenLabs(api_key=settings.elevenlabs_api_key)
     conversation = Conversation(
@@ -323,6 +334,11 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
         settings.elevenlabs_agent_id,
         requires_auth=True,
         audio_interface=iface,
+        config=ConversationInitiationData(
+            conversation_config_override={
+                "agent": {"first_message": first_msg},
+            },
+        ),
         callback_agent_response=lambda resp: logger.info(
             "Agent response: %s", resp[:120] if resp else ""
         ),
