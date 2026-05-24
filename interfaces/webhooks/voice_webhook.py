@@ -343,7 +343,7 @@ def _get_booking_system_prompt(
         gendered = _gendered_specialty(specialty, doctor_gender)
         specialty_line = (
             f"La especialidad que necesitas es: {specialty}. "
-            f"Pide cita con una {gendered} (usa la forma correcta del género).\n"
+            f"Pide cita con {'una' if doctor_gender == 'female' else 'un'} {gendered} (usa la forma correcta del género).\n"
         )
     elif specialty:
         specialty_line = (
