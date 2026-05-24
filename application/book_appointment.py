@@ -72,7 +72,7 @@ class BookAppointmentUseCase:
 
         await self._whatsapp.send_text(
             user.phone,
-            f"Looking for {request.specialty.name.lower()} appointments near you...",
+            _search_message(request),
         )
 
         # Fetch calendar busy intervals (if calendar is connected)
@@ -242,6 +242,34 @@ def _unknown_slot():
 
     from domain.value_objects.time_slot import TimeSlot
     return TimeSlot(start=datetime.utcnow(), duration_minutes=0)
+
+
+_GENDERED_SEARCH_LABELS: dict[str, tuple[str, str]] = {
+    "PSICOLOGIA": ("female psychologist", "male psychologist"),
+    "DERMATOLOGÍA": ("female dermatologist", "male dermatologist"),
+    "CARDIOLOGÍA": ("female cardiologist", "male cardiologist"),
+    "NEUROLOGÍA": ("female neurologist", "male neurologist"),
+    "OBSTETRICIA Y GINECOLOGÍA": ("female gynecologist", "male gynecologist"),
+    "PEDIATRÍA": ("female pediatrician", "male pediatrician"),
+    "OFTALMOLOGÍA": ("female ophthalmologist", "male ophthalmologist"),
+    "TRAUMATOLOGÍA": ("female traumatologist", "male traumatologist"),
+    "ENDOCRINOLOGÍA": ("female endocrinologist", "male endocrinologist"),
+    "OTORRINOLARINGOLOGÍA": ("female ENT specialist", "male ENT specialist"),
+}
+
+
+def _search_message(request: AppointmentRequest) -> str:
+    """Build the WhatsApp 'searching...' message with optional gender."""
+    name = request.specialty.name
+    gender = request.gender_preference
+    if gender:
+        pair = _GENDERED_SEARCH_LABELS.get(name.upper())
+        if pair:
+            label = pair[0] if gender == "female" else pair[1]
+        else:
+            label = f"{'female' if gender == 'female' else 'male'} {name.lower()}"
+        return f"Looking for {label} appointments near you..."
+    return f"Looking for {name.lower()} appointments near you..."
 
 
 def _format_busy_interval(s, e) -> str:
