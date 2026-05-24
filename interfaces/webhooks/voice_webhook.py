@@ -339,11 +339,19 @@ def _get_booking_system_prompt(
     max_weeks_out: int = 4,
     doctor_gender: str = "",
 ) -> str:
+    gender_line = ""
     if doctor_gender and specialty:
         gendered = _gendered_specialty(specialty, doctor_gender)
+        article = "una" if doctor_gender == "female" else "un"
+        preference_word = "una mujer" if doctor_gender == "female" else "un hombre"
         specialty_line = (
             f"La especialidad que necesitas es: {specialty}. "
-            f"Pide cita con {'una' if doctor_gender == 'female' else 'un'} {gendered} (usa la forma correcta del género).\n"
+            f"Pide cita con {article} {gendered} (usa la forma correcta del género).\n"
+        )
+        gender_line = (
+            f"\n\nIMPORTANTE — PREFERENCIA DE GÉNERO:\n"
+            f"El/la cliente pidió específicamente por {preference_word}. "
+            f"Menciónalo a la recepcionista si es necesario.\n"
         )
     elif specialty:
         specialty_line = (
@@ -391,4 +399,5 @@ def _get_booking_system_prompt(
         "Si no hay disponibilidad, di SIN_DISPONIBILIDAD antes de despedirte."
         + busy_line
         + weeks_line
+        + gender_line
     )
