@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 from application.ports import (
+    BaseCalendarService,
     BaseInsurerScraper,
     BaseMessagingClient,
     BaseOTPRelay,
@@ -36,6 +37,7 @@ class BookAppointmentUseCase:
         appointment_repo: AppointmentRepository,
         whatsapp: BaseMessagingClient,
         otp_relay: BaseOTPRelay,
+        calendar: BaseCalendarService | None = None,
         otp_timeout_seconds: int = 300,
     ):
         self._scraper = scraper
@@ -43,6 +45,7 @@ class BookAppointmentUseCase:
         self._appointment_repo = appointment_repo
         self._whatsapp = whatsapp
         self._otp_relay = otp_relay
+        self._calendar = calendar
         self._otp_timeout_seconds = otp_timeout_seconds
 
     async def execute(self, user: User, request: AppointmentRequest) -> Appointment | None:
@@ -50,6 +53,9 @@ class BookAppointmentUseCase:
             user.phone,
             f"Looking for {request.specialty.name.lower()} appointments near you...",
         )
+
+        # Fetch calendar busy intervals (if calendar is connected)
+        busy_intervals = await self._fetch_busy_intervals(user, request)
 
         doctors = await self._find_doctors_handling_otp(user, request)
         if not doctors:
@@ -60,10 +66,16 @@ class BookAppointmentUseCase:
             return None
 
         logger.info("Found %d doctors, starting call loop", len(doctors))
+        constraints = _constraints_for_request(user, request)
+        if busy_intervals:
+            logger.info(
+                "User has %d busy intervals — voice caller will avoid conflicts",
+                len(busy_intervals),
+            )
         outcome = await self._voice_caller.book_first_available(
             doctors,
             on_behalf_of=user,
-            constraints=_constraints_for_request(user, request),
+            constraints=constraints,
         )
 
         if outcome is None or not outcome.success or outcome.slot is None:
@@ -85,8 +97,37 @@ class BookAppointmentUseCase:
 
         appointment = Appointment.create(user, outcome.doctor, outcome.slot)
         await self._appointment_repo.save(appointment)
+
+        # Add event to Google Calendar (if connected)
+        await self._add_calendar_event(user, appointment)
+
         await self._whatsapp.send_confirmation(user, appointment)
         return appointment
+
+    async def _fetch_busy_intervals(self, user: User, request: AppointmentRequest):
+        """Fetch busy intervals from user's calendar, if available."""
+        if not self._calendar or not user.google_calendar_token:
+            return []
+        weeks = request.max_weeks or user.availability.max_weeks_out
+        try:
+            return await self._calendar.get_busy_intervals(user, weeks)
+        except Exception:
+            logger.exception("Calendar lookup failed for %s", user.phone)
+            return []
+
+    async def _add_calendar_event(self, user: User, appointment: Appointment):
+        """Create a calendar event for the confirmed appointment."""
+        if not self._calendar:
+            return
+        try:
+            event_id = await self._calendar.add_event(user, appointment)
+            if event_id:
+                await self._whatsapp.send_text(
+                    user.phone,
+                    "Added to your Google Calendar.",
+                )
+        except Exception:
+            logger.exception("Failed to add calendar event for %s", user.phone)
 
     async def _find_doctors_handling_otp(self, user: User, request: AppointmentRequest):
         """Run scraper, providing an inline OTP callback so the browser

@@ -109,6 +109,10 @@ class BaseCalendarService(ABC):
     ) -> list[tuple]:
         """Return list of (start_dt, end_dt) when the user is busy."""
 
+    @abstractmethod
+    async def add_event(self, user: User, appointment: "Appointment") -> str | None:
+        """Create a calendar event for a confirmed appointment. Returns event ID or None."""
+
 
 # ---- Geocoding / maps ----
 
