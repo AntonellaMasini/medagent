@@ -213,6 +213,14 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
     async def on_transcript(transcript: list) -> None:
         import anthropic
 
+        from infrastructure.voice.call_session import (
+            get_active_specialty,
+            get_busy_intervals,
+            get_doctor_gender,
+            get_max_weeks_out,
+            get_patient_name,
+        )
+
         messages = []
         for msg in transcript:
             role = "assistant" if msg.role == "agent" else "user"
@@ -224,17 +232,25 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
             messages[-1]["content"][:80] if messages else "",
         )
 
-        system_prompt = _get_booking_system_prompt()
+        system_prompt = _get_booking_system_prompt(
+            get_active_specialty(),
+            get_busy_intervals(),
+            get_patient_name(),
+            get_max_weeks_out(),
+            get_doctor_gender(),
+        )
 
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            stream = client.messages.stream(
+            # messages.stream() returns a context manager; we must enter it
+            # so the SDK receives an async-iterable of Anthropic stream events.
+            async with client.messages.stream(
                 model="claude-sonnet-4-20250514",
                 max_tokens=300,
                 system=system_prompt,
                 messages=messages,
-            )
-            await session.send_response(stream)
+            ) as stream:
+                await session.send_response(stream)
         except Exception:
             logger.exception("Error in on_transcript handler")
             await session.send_response(
