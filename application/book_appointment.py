@@ -91,10 +91,12 @@ class BookAppointmentUseCase:
         # Store per-call state for the voice prompt
         from infrastructure.voice.call_session import (
             set_busy_intervals,
+            set_max_weeks_out,
             set_patient_name,
         )
 
         set_patient_name(user.name)
+        set_max_weeks_out(constraints.max_weeks_out)
         if busy_intervals:
             logger.info(
                 "User has %d busy intervals — voice caller will avoid conflicts",

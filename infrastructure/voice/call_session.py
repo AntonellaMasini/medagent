@@ -40,6 +40,7 @@ _active_calls: dict[str, CallContext] = {}
 _active_specialty: str = ""
 _active_patient_name: str = ""
 _active_busy_intervals: list[str] = []
+_active_max_weeks_out: int = 4
 
 
 def set_active_specialty(conversation_id: str, specialty: str) -> None:
@@ -67,6 +68,15 @@ def set_busy_intervals(intervals: list[str]) -> None:
 
 def get_busy_intervals() -> list[str]:
     return _active_busy_intervals
+
+
+def set_max_weeks_out(weeks: int) -> None:
+    global _active_max_weeks_out
+    _active_max_weeks_out = weeks
+
+
+def get_max_weeks_out() -> int:
+    return _active_max_weeks_out
 
 
 def register_call(call_id: str, ctx: CallContext) -> None:
@@ -111,9 +121,13 @@ def _parse_spanish_date(text: str) -> datetime:
             month = num
             break
 
-    # Extract time (HH:MM)
+    # Extract time (HH:MM), handle AM/PM
     time_match = re.search(r"(\d{1,2}):(\d{2})", text)
     hour, minute = (int(time_match.group(1)), int(time_match.group(2))) if time_match else (now.hour, now.minute)
+    if re.search(r"\bp\.?m\.?\b", lower) and hour < 12:
+        hour += 12
+    elif re.search(r"\ba\.?m\.?\b", lower) and hour == 12:
+        hour = 0
 
     # Determine year
     year = now.year
@@ -223,7 +237,7 @@ async def run_call_session(
 
     # Wait for the conversation to complete (resolved by the /ws handler).
     try:
-        await asyncio.wait_for(ctx.outcome_event.wait(), timeout=120)
+        await asyncio.wait_for(ctx.outcome_event.wait(), timeout=300)
     except asyncio.TimeoutError:
         _active_calls.pop(call_id, None)
         return CallOutcome(doctor=doctor, success=False, reason="timeout")

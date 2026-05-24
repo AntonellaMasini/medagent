@@ -320,6 +320,21 @@ class TestParseSpanishDate:
         assert result.hour == 15
         assert result.minute == 30
 
+    def test_parses_pm_time(self):
+        from infrastructure.voice.call_session import _parse_spanish_date
+
+        result = _parse_spanish_date("martes 26 de mayo a las 4:30 pm")
+        assert result.month == 5
+        assert result.day == 26
+        assert result.hour == 16
+        assert result.minute == 30
+
+    def test_parses_pm_with_dots(self):
+        from infrastructure.voice.call_session import _parse_spanish_date
+
+        result = _parse_spanish_date("martes 26 de mayo a las 3:00 p.m.")
+        assert result.hour == 15
+
     def test_falls_back_to_now_on_garbage(self):
         from infrastructure.voice.call_session import _parse_spanish_date
 

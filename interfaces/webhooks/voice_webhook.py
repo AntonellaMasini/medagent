@@ -43,15 +43,19 @@ async def chat_completions(request: Request) -> StreamingResponse:
     from infrastructure.voice.call_session import (
         get_active_specialty,
         get_busy_intervals,
+        get_max_weeks_out,
         get_patient_name,
     )
 
     specialty = get_active_specialty()
     busy_intervals = get_busy_intervals()
     patient_name = get_patient_name()
+    max_weeks_out = get_max_weeks_out()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
-    system_prompt = _get_booking_system_prompt(specialty, busy_intervals, patient_name)
+    system_prompt = _get_booking_system_prompt(
+        specialty, busy_intervals, patient_name, max_weeks_out
+    )
     conversation_messages = []
     for msg in messages:
         if msg["role"] == "system":
@@ -252,20 +256,30 @@ async def voice_status(request: Request) -> Response:
 
     When the call ends (completed/busy/no-answer/failed), resolve the
     active call if it hasn't been resolved yet — this prevents the
-    120-second timeout from firing and re-dialling the next doctor.
+    timeout from firing and re-dialling the next doctor.
+
+    For ``completed`` calls we wait a few seconds before resolving as
+    failure — CITA_CONFIRMADA may still be detected in a streaming
+    response that hasn't finished yet.
     """
+    import asyncio
+
     form = await request.form()
     call_sid = str(form.get("CallSid", ""))
     call_status = str(form.get("CallStatus", ""))
 
     logger.info("Call status update: sid=%s status=%s", call_sid, call_status)
 
-    if call_status in ("completed", "busy", "no-answer", "failed", "canceled"):
+    if call_status in ("busy", "no-answer", "failed", "canceled"):
         from infrastructure.voice.call_session import resolve_active_if_pending
 
-        resolve_active_if_pending(
-            reason=f"call_{call_status}",
-        )
+        resolve_active_if_pending(reason=f"call_{call_status}")
+    elif call_status == "completed":
+        # Give the last streaming response time to detect CITA_CONFIRMADA
+        await asyncio.sleep(3)
+        from infrastructure.voice.call_session import resolve_active_if_pending
+
+        resolve_active_if_pending(reason="call_completed")
 
     return Response(content="", status_code=204)
 
@@ -295,6 +309,7 @@ def _get_booking_system_prompt(
     specialty: str = "",
     busy_intervals: list[str] | None = None,
     patient_name: str = "",
+    max_weeks_out: int = 4,
 ) -> str:
     specialty_line = (
         f"La especialidad que necesitas es: {specialty}.\n"
@@ -316,6 +331,12 @@ def _get_booking_system_prompt(
             f"compromiso. NO aceptes citas que caigan en estos horarios o dentro "
             f"del margen de 45 minutos.\n"
         )
+    weeks_line = (
+        f"\n\nIMPORTANTE — PLAZO MÁXIMO:\n"
+        f"La cita debe ser dentro de las próximas {max_weeks_out} semanas. "
+        f"Si solo ofrecen fechas más lejanas, rechaza amablemente y di "
+        f"SIN_DISPONIBILIDAD.\n"
+    )
     return (
         "Eres un asistente de reservas médicas que llama a clínicas en España "
         "para agendar citas EN NOMBRE DE UN PACIENTE. Hablas en español de "
@@ -334,4 +355,5 @@ def _get_booking_system_prompt(
         "10:00. Muchas gracias.'\n\n"
         "Si no hay disponibilidad, di SIN_DISPONIBILIDAD antes de despedirte."
         + busy_line
+        + weeks_line
     )

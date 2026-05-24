@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 # How long to wait for a call to connect before giving up (seconds).
 _CALL_CONNECT_TIMEOUT = 30
 # How long a conversation can last before we force-end it (seconds).
-_CONVERSATION_TIMEOUT = 120
+# Phone conversations with receptionists can easily take 3-5 minutes.
+_CONVERSATION_TIMEOUT = 300
 
 
 @dataclass
