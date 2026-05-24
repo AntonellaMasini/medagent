@@ -1,9 +1,9 @@
 """Outbound voice caller using ElevenLabs Speech Engine + Twilio.
 
 Architecture:
-  1. We place an outbound call via Twilio Programmable Voice.
-  2. Twilio returns TwiML pointing to our WebSocket stream endpoint.
-  3. The voice webhook bridges Twilio Media Streams ↔ ElevenLabs Speech Engine.
+  1. We place an outbound call via ElevenLabs outbound_call() API.
+  2. ElevenLabs natively handles the Twilio audio bridge (STT/TTS).
+  3. ElevenLabs connects to our /ws endpoint for LLM logic.
   4. Our Speech Engine handler runs Claude (Anthropic) to conduct the
      appointment-booking conversation in Spanish.
 
@@ -34,13 +34,10 @@ _CONVERSATION_TIMEOUT = 120
 class VoiceCallerConfig:
     """All config needed by the voice caller, passed from main.py."""
 
-    twilio_account_sid: str
-    twilio_auth_token: str
-    twilio_voice_number: str
     elevenlabs_api_key: str
-    elevenlabs_voice_id: str
+    elevenlabs_agent_id: str
+    elevenlabs_phone_number_id: str
     anthropic_api_key: str
-    base_url_ws: str
     demo_mode: bool = False
     demo_receptionist_number: str = ""
 

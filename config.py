@@ -27,12 +27,13 @@ class Settings(BaseSettings):
     google_calendar_client_id: str = Field(default="")
     google_calendar_client_secret: str = Field(default="")
 
-    # --- Voice (ElevenLabs Speech Engine + Twilio Voice) ---
+    # --- Voice (ElevenLabs Speech Engine) ---
     elevenlabs_api_key: str = Field(default="")
-    elevenlabs_voice_id: str = Field(default="")
-    elevenlabs_receptionist_voice_id: str = Field(default="")
+    elevenlabs_agent_id: str = Field(default="")  # Agent ID (agent_... or seng_...)
+    elevenlabs_phone_number_id: str = Field(default="")  # Twilio number registered in ElevenLabs
+    elevenlabs_voice_id: str = Field(default="ewn5JTa3lNPY8QVuZJi6")
+    elevenlabs_receptionist_voice_id: str = Field(default="YXGHKitgIMeIV5gGeQvP")
     anthropic_api_key: str = Field(default="")
-    base_url_ws: str = Field(default="")  # ngrok WSS URL for media stream callbacks
     demo_mode: bool = Field(default=False)
     demo_receptionist_number: str = Field(default="")
 
