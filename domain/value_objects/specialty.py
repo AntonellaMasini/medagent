@@ -132,6 +132,13 @@ _SYNONYMS: dict[str, str] = {
     # Slang
     "terapeuta": "PSICOLOGIA",
     "loquero": "PSICOLOGIA",
+    # English aliases (issue #24 — minimal set for hackathon demo)
+    "psychologist": "PSICOLOGIA",
+    "dermatologist": "DERMATOLOGÍA",
+    "cardiologist": "CARDIOLOGÍA",
+    "gynecologist": "OBSTETRICIA Y GINECOLOGÍA",
+    "dentist": "ODONTOLOGIA",
+    "pediatrician": "PEDIATRÍA-MÉDICO PUERICULTOR",
 }
 
 

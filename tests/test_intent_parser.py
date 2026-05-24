@@ -138,6 +138,33 @@ class TestHighRiskSpecialtyDefaults:
         assert req.max_weeks == 1
 
 
+# ---- English alias support (issue #24, hackathon demo) ----
+
+class TestEnglishAliases:
+    """English words should resolve to the correct Spanish specialty via
+    the synonym dict. Covers the minimal demo set from issue #24."""
+
+    def test_psychologist_maps_to_psicologia(self):
+        req = parse_appointment_intent("book a psychologist")
+        assert req is not None
+        assert req.specialty.name == "PSICOLOGIA"
+
+    def test_dermatologist_maps_to_dermatologia(self):
+        req = parse_appointment_intent("I need a dermatologist")
+        assert req is not None
+        assert req.specialty.name == "DERMATOLOGÍA"
+
+    def test_cardiologist_maps_to_cardiologia(self):
+        req = parse_appointment_intent("cardiologist appointment please")
+        assert req is not None
+        assert req.specialty.name == "CARDIOLOGÍA"
+
+    def test_gynecologist_maps_to_obstetricia(self):
+        req = parse_appointment_intent("gynecologist")
+        assert req is not None
+        assert req.specialty.name == "OBSTETRICIA Y GINECOLOGÍA"
+
+
 # ---- regression: substring false-positives that an earlier version had ----
 
 def _spec(name: str) -> Specialty:
