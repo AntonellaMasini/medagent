@@ -9,7 +9,6 @@ Endpoints:
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 
@@ -54,13 +53,22 @@ async def voice_stream(websocket: WebSocket) -> None:
     """Handle the Twilio Media Stream WebSocket.
 
     Twilio sends JSON frames with events: connected, start, media, stop.
-    We bridge audio to ElevenLabs Speech Engine via the Conversation class.
+    We bridge audio to ElevenLabs Speech Engine via the Conversation class
+    and TwilioAudioInterface.
     """
     await websocket.accept()
     logger.info("Twilio Media Stream WebSocket connected")
 
+    from config import get_settings
+    from elevenlabs import ElevenLabs
+    from elevenlabs.conversational_ai.conversation import Conversation
+
+    from infrastructure.voice.twilio_audio_interface import TwilioAudioInterface
+
+    settings = get_settings()
+    audio_interface = TwilioAudioInterface(websocket)
+    conversation: Conversation | None = None
     call_sid: str | None = None
-    stream_sid: str | None = None
     call_ctx: CallContext | None = None
 
     try:
@@ -74,30 +82,50 @@ async def voice_stream(websocket: WebSocket) -> None:
             elif event == "start":
                 start_data = msg.get("start", {})
                 call_sid = start_data.get("callSid")
-                stream_sid = start_data.get("streamSid")
                 logger.info(
                     "Media stream started: call_sid=%s stream_sid=%s",
                     call_sid,
-                    stream_sid,
+                    start_data.get("streamSid"),
                 )
+
+                # Look up call context for this call
                 if call_sid:
                     call_ctx = get_call_context(call_sid)
-                    if call_ctx:
-                        # Start the Speech Engine conversation in background
-                        asyncio.create_task(
-                            _run_speech_engine_conversation(
-                                websocket=websocket,
-                                call_ctx=call_ctx,
-                                stream_sid=stream_sid,
-                            )
+
+                # Forward start event to audio interface
+                await audio_interface.handle_twilio_message(msg)
+
+                # Start ElevenLabs conversation with Speech Engine
+                if settings.elevenlabs_api_key and settings.elevenlabs_agent_id:
+                    try:
+                        client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+                        conversation = Conversation(
+                            client=client,
+                            agent_id=settings.elevenlabs_agent_id,
+                            requires_auth=True,
+                            audio_interface=audio_interface,
+                            callback_agent_response=lambda text: logger.info(
+                                "Agent said: %s", text[:100]
+                            ),
+                            callback_user_transcript=lambda text: logger.info(
+                                "User said: %s", text[:100]
+                            ),
                         )
+                        conversation.start_session()
+                        logger.info("ElevenLabs conversation started")
+                    except Exception:
+                        logger.exception(
+                            "Failed to start ElevenLabs conversation"
+                        )
+                        conversation = None
+                else:
+                    logger.warning(
+                        "ELEVENLABS_AGENT_ID not set — audio bridge disabled"
+                    )
 
             elif event == "media":
-                # Audio data from the caller (the receptionist's voice).
-                # In the full implementation, this gets forwarded to
-                # ElevenLabs for STT.  For now handled by the conversation
-                # task started above.
-                pass
+                # Forward audio to ElevenLabs via the audio interface
+                await audio_interface.handle_twilio_message(msg)
 
             elif event == "stop":
                 logger.info("Media stream stopped: call_sid=%s", call_sid)
@@ -106,6 +134,19 @@ async def voice_stream(websocket: WebSocket) -> None:
     except Exception:
         logger.exception("Error in voice stream WebSocket")
     finally:
+        # Clean up the ElevenLabs conversation
+        if conversation:
+            try:
+                conversation.end_session()
+                conversation.wait_for_session_end()
+                logger.info("ElevenLabs conversation ended")
+            except Exception:
+                logger.exception("Error ending conversation session")
+
+        # Resolve the call outcome if we have context
+        if call_sid and call_ctx:
+            _resolve_after_stream(call_sid, call_ctx)
+
         logger.info("Voice stream WebSocket closed")
 
 
@@ -137,87 +178,23 @@ async def voice_status(request: Request) -> Response:
     return Response(content="", status_code=204)
 
 
-async def _run_speech_engine_conversation(
-    *,
-    websocket: WebSocket,
-    call_ctx: CallContext,
-    stream_sid: str | None,
-) -> None:
-    """Run the Speech Engine conversation for a connected call.
+def _resolve_after_stream(call_sid: str, call_ctx: CallContext) -> None:
+    """Resolve the call after the media stream ends.
 
-    This bridges the Twilio audio stream to ElevenLabs Speech Engine
-    and uses Claude to conduct the booking conversation.
-
-    TODO(hackathon-followup): Implement full bidirectional audio bridge
-    using the ElevenLabs Conversation class + TwilioAudioInterface.
-    Current implementation uses a simplified text-based flow as proof
-    of concept while the full audio bridge is being integrated.
+    When the stream closes normally (call hung up after conversation),
+    we treat it as a completed call. The Speech Engine conversation
+    has already run — if it detected a booking confirmation via the
+    callback_agent_response, the outcome was set. Otherwise we resolve
+    with a generic "stream_ended" reason so the caller doesn't hang.
     """
     from application.ports import CallOutcome
-    from config import get_settings
-    from infrastructure.voice.speech_engine_handler import (
-        build_booking_system_prompt,
-        get_llm_response,
-        parse_booking_outcome,
-    )
 
-    settings = get_settings()
-    system_prompt = build_booking_system_prompt(
-        user=call_ctx.user,
+    if call_ctx.outcome is not None:
+        return
+
+    outcome = CallOutcome(
         doctor=call_ctx.doctor,
-        constraints=call_ctx.constraints,
+        success=False,
+        reason="stream_ended_no_booking_detected",
     )
-
-    # For the MVP, we run a single-turn conversation to demonstrate
-    # the Speech Engine integration.  The full implementation will use
-    # the ElevenLabs Conversation class for real-time audio streaming.
-    transcript: list[dict[str, str]] = [
-        {
-            "role": "user",
-            "content": (
-                "Buenos días, ¿tienen disponibilidad para una cita de "
-                f"{call_ctx.doctor.specialty.name}?"
-            ),
-        }
-    ]
-
-    try:
-        response_text = await get_llm_response(
-            api_key=settings.anthropic_api_key,
-            system_prompt=system_prompt,
-            transcript=transcript,
-        )
-        logger.info("LLM response: %s", response_text[:200])
-
-        success, slot, reason = parse_booking_outcome(
-            response_text, call_ctx.doctor
-        )
-
-        outcome = CallOutcome(
-            doctor=call_ctx.doctor,
-            success=success,
-            slot=slot,
-            reason=reason,
-        )
-    except Exception as exc:
-        logger.exception("Speech Engine conversation failed")
-        outcome = CallOutcome(
-            doctor=call_ctx.doctor,
-            success=False,
-            reason=f"speech_engine_error: {exc}",
-        )
-
-    # Signal the waiter
-    call_sid_key = next(
-        (k for k, v in _get_active_calls().items() if v is call_ctx),
-        None,
-    )
-    if call_sid_key:
-        resolve_call(call_sid_key, outcome)
-
-
-def _get_active_calls() -> dict:
-    """Access the active calls registry (avoid circular import)."""
-    from infrastructure.voice.call_session import _active_calls
-
-    return _active_calls
+    resolve_call(call_sid, outcome)
