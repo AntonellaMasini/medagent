@@ -316,9 +316,9 @@ _GENDERED_SPECIALTIES: dict[str, tuple[str, str]] = {
     "CARDIOLOGÍA": ("cardióloga", "cardiólogo"),
     "NEUROLOGÍA": ("neuróloga", "neurólogo"),
     "OBSTETRICIA Y GINECOLOGÍA": ("ginecóloga", "ginecólogo"),
-    "PEDIATRÍA": ("pediatra", "pediatra"),
+    "PEDIATRÍA-MÉDICO PUERICULTOR": ("pediatra", "pediatra"),
     "OFTALMOLOGÍA": ("oftalmóloga", "oftalmólogo"),
-    "TRAUMATOLOGÍA": ("traumatóloga", "traumatólogo"),
+    "TRAUMATOLOGÍA Y CIRUGÍA ORTOPÉDICA": ("traumatóloga", "traumatólogo"),
     "ENDOCRINOLOGÍA": ("endocrinóloga", "endocrinólogo"),
     "OTORRINOLARINGOLOGÍA": ("otorrinolaringóloga", "otorrinolaringólogo"),
 }

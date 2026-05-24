@@ -250,9 +250,9 @@ _GENDERED_SEARCH_LABELS: dict[str, tuple[str, str]] = {
     "CARDIOLOGÍA": ("female cardiologist", "male cardiologist"),
     "NEUROLOGÍA": ("female neurologist", "male neurologist"),
     "OBSTETRICIA Y GINECOLOGÍA": ("female gynecologist", "male gynecologist"),
-    "PEDIATRÍA": ("female pediatrician", "male pediatrician"),
+    "PEDIATRÍA-MÉDICO PUERICULTOR": ("female pediatrician", "male pediatrician"),
     "OFTALMOLOGÍA": ("female ophthalmologist", "male ophthalmologist"),
-    "TRAUMATOLOGÍA": ("female traumatologist", "male traumatologist"),
+    "TRAUMATOLOGÍA Y CIRUGÍA ORTOPÉDICA": ("female traumatologist", "male traumatologist"),
     "ENDOCRINOLOGÍA": ("female endocrinologist", "male endocrinologist"),
     "OTORRINOLARINGOLOGÍA": ("female ENT specialist", "male ENT specialist"),
 }
