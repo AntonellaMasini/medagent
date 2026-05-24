@@ -38,6 +38,7 @@ class BookAppointmentUseCase:
         whatsapp: BaseMessagingClient,
         otp_relay: BaseOTPRelay,
         calendar: BaseCalendarService | None = None,
+        calendar_auth_url: str = "",
         otp_timeout_seconds: int = 300,
     ):
         self._scraper = scraper
@@ -46,9 +47,25 @@ class BookAppointmentUseCase:
         self._whatsapp = whatsapp
         self._otp_relay = otp_relay
         self._calendar = calendar
+        self._calendar_auth_url = calendar_auth_url
         self._otp_timeout_seconds = otp_timeout_seconds
 
     async def execute(self, user: User, request: AppointmentRequest) -> Appointment | None:
+        # Prompt user to connect Google Calendar if not yet linked
+        if (
+            self._calendar
+            and self._calendar_auth_url
+            and not user.google_calendar_token
+        ):
+            link = f"{self._calendar_auth_url}?phone={user.phone}"
+            await self._whatsapp.send_text(
+                user.phone,
+                "Tip: Connect your Google Calendar so I can check your "
+                "availability and add appointments automatically:\n"
+                f"{link}\n\n"
+                "I'll start searching for clinics in the meantime.",
+            )
+
         await self._whatsapp.send_text(
             user.phone,
             f"Looking for {request.specialty.name.lower()} appointments near you...",

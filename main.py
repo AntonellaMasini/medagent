@@ -103,6 +103,11 @@ def create_app() -> FastAPI:
         voice_caller = StubVoiceCaller()
 
     # ---- Use cases ----
+    cal_auth_url = (
+        f"{settings.base_url}/auth/google/start"
+        if calendar_service
+        else ""
+    )
     book_use_case = BookAppointmentUseCase(
         scraper=scraper,
         voice_caller=voice_caller,
@@ -110,6 +115,7 @@ def create_app() -> FastAPI:
         whatsapp=whatsapp,
         otp_relay=otp_relay,
         calendar=calendar_service,
+        calendar_auth_url=cal_auth_url,
         otp_timeout_seconds=settings.otp_wait_timeout_seconds,
     )
     handle_otp = HandleOTPUseCase(otp_relay=otp_relay)
@@ -145,11 +151,6 @@ def create_app() -> FastAPI:
     app.include_router(build_health_router())
     app.include_router(voice_router)
     if user_repo and onboarding and setup_credentials:
-        cal_auth_url = (
-            f"{settings.base_url}/auth/google/start"
-            if calendar_service
-            else ""
-        )
         app.include_router(
             build_whatsapp_router(
                 user_repo=user_repo,
