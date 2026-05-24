@@ -39,6 +39,7 @@ def build_whatsapp_router(
     handle_otp: HandleOTPUseCase,
     otp_relay: BaseOTPRelay,
     whatsapp: BaseMessagingClient,
+    calendar_auth_url: str = "",
 ) -> APIRouter:
     router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -69,6 +70,19 @@ def build_whatsapp_router(
         # 2) Registered user → booking flow.
         user = await user_repo.get_by_phone(phone)
         if user is not None:
+            # Handle "connect calendar" command
+            if _is_calendar_command(body) and calendar_auth_url:
+                from urllib.parse import quote
+
+                link = f"{calendar_auth_url}?phone={quote(phone, safe='')}"
+                background.add_task(
+                    whatsapp.send_text,
+                    phone,
+                    f"Connect your Google Calendar so I can check your "
+                    f"availability:\n{link}",
+                )
+                return _twiml()
+
             req = parse_appointment_intent(body)
             if req is None:
                 background.add_task(
@@ -94,3 +108,12 @@ def _twiml() -> Response:
 
 def _strip_whatsapp_prefix(s: str) -> str:
     return s[len("whatsapp:"):] if s.startswith("whatsapp:") else s
+
+
+_CALENDAR_KEYWORDS = {"calendar", "calendario", "connect calendar", "conectar calendario"}
+
+
+def _is_calendar_command(body: str) -> bool:
+    """Check if the message is a request to connect Google Calendar."""
+    lower = body.lower().strip()
+    return lower in _CALENDAR_KEYWORDS

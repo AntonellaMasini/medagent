@@ -10,6 +10,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from application.ports import CallOutcome
 from domain.entities.doctor import Doctor
@@ -35,8 +36,11 @@ class CallContext:
 # (ElevenLabs' conversation identifier returned on the /ws session).
 _active_calls: dict[str, CallContext] = {}
 
-# Specialty for the current active call (simple approach since calls are sequential).
+# Per-call state (simple approach since calls are sequential).
 _active_specialty: str = ""
+_active_patient_name: str = ""
+_active_busy_intervals: list[str] = []
+_active_max_weeks_out: int = 4
 
 
 def set_active_specialty(conversation_id: str, specialty: str) -> None:
@@ -46,6 +50,33 @@ def set_active_specialty(conversation_id: str, specialty: str) -> None:
 
 def get_active_specialty() -> str:
     return _active_specialty
+
+
+def set_patient_name(name: str) -> None:
+    global _active_patient_name
+    _active_patient_name = name
+
+
+def get_patient_name() -> str:
+    return _active_patient_name
+
+
+def set_busy_intervals(intervals: list[str]) -> None:
+    global _active_busy_intervals
+    _active_busy_intervals = intervals
+
+
+def get_busy_intervals() -> list[str]:
+    return _active_busy_intervals
+
+
+def set_max_weeks_out(weeks: int) -> None:
+    global _active_max_weeks_out
+    _active_max_weeks_out = weeks
+
+
+def get_max_weeks_out() -> int:
+    return _active_max_weeks_out
 
 
 def register_call(call_id: str, ctx: CallContext) -> None:
@@ -62,6 +93,94 @@ def resolve_call(call_id: str, outcome: CallOutcome) -> None:
     if ctx:
         ctx.outcome = outcome
         ctx.outcome_event.set()
+
+
+def _parse_spanish_date(text: str) -> datetime:
+    """Best-effort parse of a Spanish date string like 'martes 26 de mayo a las 10:00'.
+
+    Falls back to datetime.utcnow() if parsing fails.
+    """
+    import re
+
+    MONTHS = {
+        "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+        "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+        "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+    }
+    now = datetime.utcnow()
+
+    # Extract day number
+    day_match = re.search(r"\b(\d{1,2})\b", text)
+    day = int(day_match.group(1)) if day_match else now.day
+
+    # Extract month
+    month = now.month
+    lower = text.lower()
+    for name, num in MONTHS.items():
+        if name in lower:
+            month = num
+            break
+
+    # Extract time (HH:MM), handle AM/PM
+    time_match = re.search(r"(\d{1,2}):(\d{2})", text)
+    hour, minute = (int(time_match.group(1)), int(time_match.group(2))) if time_match else (now.hour, now.minute)
+    if re.search(r"\bp\.?m\.?\b", lower) and hour < 12:
+        hour += 12
+    elif re.search(r"\ba\.?m\.?\b", lower) and hour == 12:
+        hour = 0
+
+    # Determine year
+    year = now.year
+    if month < now.month or (month == now.month and day < now.day):
+        year += 1
+
+    try:
+        return datetime(year, month, day, hour, minute)
+    except ValueError:
+        logger.warning("Failed to parse Spanish date '%s', using now", text)
+        return now
+
+
+def resolve_active_if_pending(
+    *,
+    reason: str | None = None,
+    success: bool = False,
+    date_hint: str = "",
+) -> None:
+    """Resolve the single active call (calls are sequential).
+
+    Called from the chat-completions stream when CITA_CONFIRMADA or
+    SIN_DISPONIBILIDAD is detected, or from the Twilio status callback
+    when the call ends.
+    """
+    if not _active_calls:
+        return
+    call_id, ctx = next(iter(_active_calls.items()))
+    if ctx.outcome_event.is_set():
+        return  # already resolved
+
+    from domain.value_objects.time_slot import TimeSlot
+
+    slot = None
+    if success:
+        parsed = _parse_spanish_date(date_hint)
+        slot = TimeSlot(start=parsed, duration_minutes=30)
+        logger.info(
+            "Resolving call %s as SUCCESS (date_hint=%s → %s)",
+            call_id,
+            date_hint,
+            parsed.isoformat(),
+        )
+    else:
+        logger.info("Resolving call %s as FAILED (reason=%s)", call_id, reason)
+
+    outcome = CallOutcome(
+        doctor=ctx.doctor,
+        success=success,
+        slot=slot,
+        reason=reason,
+    )
+    resolve_call(call_id, outcome)
 
 
 async def run_call_session(
@@ -118,7 +237,7 @@ async def run_call_session(
 
     # Wait for the conversation to complete (resolved by the /ws handler).
     try:
-        await asyncio.wait_for(ctx.outcome_event.wait(), timeout=120)
+        await asyncio.wait_for(ctx.outcome_event.wait(), timeout=300)
     except asyncio.TimeoutError:
         _active_calls.pop(call_id, None)
         return CallOutcome(doctor=doctor, success=False, reason="timeout")

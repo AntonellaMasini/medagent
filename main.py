@@ -32,11 +32,13 @@ from infrastructure.persistence.sqlite_onboarding_draft_repository import (
 )
 from infrastructure.persistence.sqlite_user_repository import SQLiteUserRepository
 from infrastructure.scrapers.cigna_scraper import CignaScraper
+from infrastructure.calendar.google_calendar_service import GoogleCalendarService
 from infrastructure.voice.elevenlabs_voice_caller import (
     ElevenLabsVoiceCaller,
     VoiceCallerConfig,
 )
 from infrastructure.voice.twilio_voice_caller import StubVoiceCaller
+from interfaces.api.google_auth import build_google_auth_router
 from interfaces.api.health import build_health_router
 from interfaces.api.setup_credentials import build_setup_credentials_router
 from interfaces.webhooks.voice_webhook import router as voice_router
@@ -76,6 +78,15 @@ def create_app() -> FastAPI:
         headless=settings.playwright_headless,
         timeout_ms=settings.playwright_timeout_ms,
     )
+    # Google Calendar service (optional — needs client_id + secret)
+    calendar_service: GoogleCalendarService | None = None
+    if settings.google_calendar_client_id and settings.google_calendar_client_secret:
+        calendar_service = GoogleCalendarService(
+            client_id=settings.google_calendar_client_id,
+            client_secret=settings.google_calendar_client_secret,
+            redirect_uri=f"{settings.base_url}/auth/google/callback",
+        )
+
     # Use real voice caller if ElevenLabs Speech Engine is configured.
     if settings.elevenlabs_api_key and settings.elevenlabs_agent_id:
         voice_caller = ElevenLabsVoiceCaller(
@@ -92,12 +103,19 @@ def create_app() -> FastAPI:
         voice_caller = StubVoiceCaller()
 
     # ---- Use cases ----
+    cal_auth_url = (
+        f"{settings.base_url}/auth/google/start"
+        if calendar_service
+        else ""
+    )
     book_use_case = BookAppointmentUseCase(
         scraper=scraper,
         voice_caller=voice_caller,
         appointment_repo=appointment_repo,
         whatsapp=whatsapp,
         otp_relay=otp_relay,
+        calendar=calendar_service,
+        calendar_auth_url=cal_auth_url,
         otp_timeout_seconds=settings.otp_wait_timeout_seconds,
     )
     handle_otp = HandleOTPUseCase(otp_relay=otp_relay)
@@ -141,9 +159,17 @@ def create_app() -> FastAPI:
                 handle_otp=handle_otp,
                 otp_relay=otp_relay,
                 whatsapp=whatsapp,
+                calendar_auth_url=cal_auth_url,
             )
         )
         app.include_router(build_setup_credentials_router(setup_credentials))
+        if calendar_service:
+            app.include_router(
+                build_google_auth_router(
+                    calendar_service=calendar_service,
+                    user_repo=user_repo,
+                )
+            )
     return app
 
 
