@@ -299,6 +299,38 @@ class TestResolveActiveIfPending:
         assert ctx.outcome is None  # unchanged
 
 
+class TestParseSpanishDate:
+    """Tests for _parse_spanish_date date extraction."""
+
+    def test_parses_full_date_with_time(self):
+        from infrastructure.voice.call_session import _parse_spanish_date
+
+        result = _parse_spanish_date("martes 27 de mayo a las 10:00")
+        assert result.month == 5
+        assert result.day == 27
+        assert result.hour == 10
+        assert result.minute == 0
+
+    def test_parses_date_without_weekday(self):
+        from infrastructure.voice.call_session import _parse_spanish_date
+
+        result = _parse_spanish_date("26 de junio a las 15:30")
+        assert result.month == 6
+        assert result.day == 26
+        assert result.hour == 15
+        assert result.minute == 30
+
+    def test_falls_back_to_now_on_garbage(self):
+        from infrastructure.voice.call_session import _parse_spanish_date
+
+        result = _parse_spanish_date("")
+        from datetime import datetime
+
+        now = datetime.utcnow()
+        assert result.year == now.year
+        assert result.month == now.month
+
+
 class TestCheckBookingOutcome:
     """Tests for _check_booking_outcome keyword detection."""
 

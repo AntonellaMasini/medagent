@@ -101,7 +101,7 @@ class BookAppointmentUseCase:
                 len(busy_intervals),
             )
             formatted = [
-                f"{s.strftime('%a %d %b %H:%M')}–{e.strftime('%H:%M')}"
+                _format_busy_interval(s, e)
                 for s, e in busy_intervals
             ]
             set_busy_intervals(formatted)
@@ -220,3 +220,14 @@ def _unknown_slot():
 
     from domain.value_objects.time_slot import TimeSlot
     return TimeSlot(start=datetime.utcnow(), duration_minutes=0)
+
+
+def _format_busy_interval(s, e) -> str:
+    """Format a busy interval for the voice prompt.
+
+    All-day events (midnight to midnight) are shown as 'Mon 25 May TODO EL DÍA'.
+    Regular events show the time range.
+    """
+    if s.hour == 0 and s.minute == 0 and e.hour == 0 and e.minute == 0:
+        return f"{s.strftime('%a %d %b')} TODO EL DÍA (ocupado)"
+    return f"{s.strftime('%a %d %b %H:%M')}–{e.strftime('%H:%M')}"

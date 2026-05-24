@@ -100,6 +100,7 @@ class GoogleCalendarService(BaseCalendarService):
         body = {
             "timeMin": now.isoformat(),
             "timeMax": time_max.isoformat(),
+            "timeZone": "Europe/Madrid",
             "items": [{"id": "primary"}],
         }
 
@@ -118,18 +119,73 @@ class GoogleCalendarService(BaseCalendarService):
             data = resp.json()
 
         busy_list = data.get("calendars", {}).get("primary", {}).get("busy", [])
+        logger.debug("Google Calendar freebusy raw response: %s", busy_list)
         intervals = []
         for entry in busy_list:
             start = datetime.fromisoformat(entry["start"].replace("Z", "+00:00"))
             end = datetime.fromisoformat(entry["end"].replace("Z", "+00:00"))
             intervals.append((start, end))
 
+        # Also fetch events list to catch all-day events that freebusy may miss
+        all_day_intervals = await self._fetch_all_day_events(
+            access_token, now, time_max
+        )
+        intervals.extend(all_day_intervals)
+
         logger.info(
-            "Google Calendar: %d busy intervals for %s (next %d weeks)",
+            "Google Calendar: %d busy intervals (%d all-day) for %s (next %d weeks)",
             len(intervals),
+            len(all_day_intervals),
             user.phone,
             lookahead_weeks,
         )
+        return intervals
+
+    async def _fetch_all_day_events(
+        self,
+        access_token: str,
+        time_min: datetime,
+        time_max: datetime,
+    ) -> list[tuple[datetime, datetime]]:
+        """Fetch all-day events via the events list API.
+
+        The freebusy API sometimes omits all-day events depending on
+        the calendar's default visibility settings.
+        """
+        params = {
+            "timeMin": time_min.isoformat(),
+            "timeMax": time_max.isoformat(),
+            "singleEvents": "true",
+            "orderBy": "startTime",
+            "maxResults": "100",
+        }
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{GOOGLE_CALENDAR_API}/calendars/primary/events",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params=params,
+            )
+            if resp.status_code != 200:
+                logger.warning("Failed to fetch events list: %s", resp.text)
+                return []
+
+            data = resp.json()
+
+        intervals = []
+        for item in data.get("items", []):
+            start_raw = item.get("start", {})
+            end_raw = item.get("end", {})
+            # All-day events use "date" instead of "dateTime"
+            if "date" in start_raw and "date" in end_raw:
+                start_date = datetime.fromisoformat(start_raw["date"])
+                end_date = datetime.fromisoformat(end_raw["date"])
+                # Convert to timezone-aware datetimes spanning the full day
+                start_dt = start_date.replace(tzinfo=timezone.utc)
+                end_dt = end_date.replace(tzinfo=timezone.utc)
+                intervals.append((start_dt, end_dt))
+
+        logger.debug("Found %d all-day events", len(intervals))
         return intervals
 
     async def add_event(self, user: User, appointment: Appointment) -> str | None:

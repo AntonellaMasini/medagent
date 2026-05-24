@@ -10,6 +10,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from application.ports import CallOutcome
 from domain.entities.doctor import Doctor
@@ -84,6 +85,48 @@ def resolve_call(call_id: str, outcome: CallOutcome) -> None:
         ctx.outcome_event.set()
 
 
+def _parse_spanish_date(text: str) -> datetime:
+    """Best-effort parse of a Spanish date string like 'martes 26 de mayo a las 10:00'.
+
+    Falls back to datetime.utcnow() if parsing fails.
+    """
+    import re
+
+    MONTHS = {
+        "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+        "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+        "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+    }
+    now = datetime.utcnow()
+
+    # Extract day number
+    day_match = re.search(r"\b(\d{1,2})\b", text)
+    day = int(day_match.group(1)) if day_match else now.day
+
+    # Extract month
+    month = now.month
+    lower = text.lower()
+    for name, num in MONTHS.items():
+        if name in lower:
+            month = num
+            break
+
+    # Extract time (HH:MM)
+    time_match = re.search(r"(\d{1,2}):(\d{2})", text)
+    hour, minute = (int(time_match.group(1)), int(time_match.group(2))) if time_match else (now.hour, now.minute)
+
+    # Determine year
+    year = now.year
+    if month < now.month or (month == now.month and day < now.day):
+        year += 1
+
+    try:
+        return datetime(year, month, day, hour, minute)
+    except ValueError:
+        logger.warning("Failed to parse Spanish date '%s', using now", text)
+        return now
+
+
 def resolve_active_if_pending(
     *,
     reason: str | None = None,
@@ -106,13 +149,13 @@ def resolve_active_if_pending(
 
     slot = None
     if success:
-        from datetime import datetime
-
-        slot = TimeSlot(start=datetime.utcnow(), duration_minutes=30)
+        parsed = _parse_spanish_date(date_hint)
+        slot = TimeSlot(start=parsed, duration_minutes=30)
         logger.info(
-            "Resolving call %s as SUCCESS (date_hint=%s)",
+            "Resolving call %s as SUCCESS (date_hint=%s → %s)",
             call_id,
             date_hint,
+            parsed.isoformat(),
         )
     else:
         logger.info("Resolving call %s as FAILED (reason=%s)", call_id, reason)
