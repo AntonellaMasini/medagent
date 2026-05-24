@@ -1,8 +1,10 @@
-"""Single-call session: places call via ElevenLabs outbound_call API.
+"""Single-call session: places outbound call via Twilio + ElevenLabs Speech Engine.
 
-ElevenLabs natively handles the Twilio audio bridge — we just tell it
-which Speech Engine agent to use and which number to call.  The Speech
-Engine then connects back to our /ws handler for LLM logic.
+Flow:
+  1. register_call() tells ElevenLabs about the upcoming call → returns TwiML.
+  2. Twilio REST API dials the clinic with that TwiML.
+  3. Twilio streams audio to ElevenLabs (STT/TTS).
+  4. ElevenLabs connects to our /v1/chat/completions endpoint for LLM logic.
 """
 from __future__ import annotations
 
@@ -201,13 +203,16 @@ async def run_call_session(
     constraints: AvailabilityWindow,
     to_phone: str,
 ) -> CallOutcome:
-    """Place an outbound call via ElevenLabs and wait for completion.
+    """Place an outbound call via Twilio, using ElevenLabs Speech Engine.
 
-    ElevenLabs handles the Twilio audio bridge natively.  When the call
-    connects, ElevenLabs opens a WebSocket to our /ws endpoint where we
-    run Claude for the booking conversation.
+    1. ``register_call`` tells ElevenLabs about the call and returns TwiML
+       with ``<Connect><Stream>`` pointing at the Speech Engine audio bridge.
+    2. Twilio REST API dials the clinic with that TwiML.
+    3. ElevenLabs handles STT/TTS; our ``/v1/chat/completions`` endpoint
+       provides the LLM logic (Claude).
     """
     from elevenlabs import ElevenLabs
+    from twilio.rest import Client as TwilioClient
 
     from infrastructure.voice.elevenlabs_voice_caller import VoiceCallerConfig
 
@@ -223,23 +228,41 @@ async def run_call_session(
     register_call(call_id, ctx)
 
     try:
-        client = ElevenLabs(api_key=cfg.elevenlabs_api_key)
+        el_client = ElevenLabs(api_key=cfg.elevenlabs_api_key)
         specialty_name = doctor.specialty.name
-        response = client.conversational_ai.twilio.outbound_call(
+
+        # Step 1: register the call with ElevenLabs → get TwiML
+        twiml_xml = el_client.conversational_ai.twilio.register_call(
             agent_id=cfg.elevenlabs_agent_id,
-            agent_phone_number_id=cfg.elevenlabs_phone_number_id,
+            from_number=cfg.twilio_voice_number,
             to_number=to_phone,
+            direction="outbound",
         )
-        # Store specialty for the chat completions endpoint to look up
-        conv_id = getattr(response, "conversation_id", None)
-        if conv_id:
-            set_active_specialty(conv_id, specialty_name)
         logger.info(
-            "ElevenLabs outbound call placed: call_id=%s → %s (response=%s)",
+            "Registered call with ElevenLabs: call_id=%s → %s",
             call_id,
             to_phone,
-            response,
         )
+
+        # Step 2: place the outbound call via Twilio REST API
+        twilio_client = TwilioClient(
+            cfg.twilio_account_sid, cfg.twilio_auth_token
+        )
+        twilio_call = twilio_client.calls.create(
+            twiml=twiml_xml,
+            to=to_phone,
+            from_=cfg.twilio_voice_number,
+            status_callback=f"{cfg.base_url}/webhooks/voice/status",
+            status_callback_event=["completed", "busy", "no-answer", "failed", "canceled"],
+        )
+        logger.info(
+            "Twilio outbound call placed: call_id=%s sid=%s → %s",
+            call_id,
+            twilio_call.sid,
+            to_phone,
+        )
+
+        set_active_specialty(call_id, specialty_name)
     except Exception as exc:
         logger.exception("Failed to place outbound call to %s", to_phone)
         _active_calls.pop(call_id, None)

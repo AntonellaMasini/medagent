@@ -95,6 +95,10 @@ def create_app() -> FastAPI:
                 elevenlabs_agent_id=settings.elevenlabs_agent_id,
                 elevenlabs_phone_number_id=settings.elevenlabs_phone_number_id,
                 anthropic_api_key=settings.anthropic_api_key,
+                twilio_account_sid=settings.twilio_account_sid,
+                twilio_auth_token=settings.twilio_auth_token,
+                twilio_voice_number=settings.twilio_voice_number,
+                base_url=settings.base_url,
                 demo_mode=settings.demo_mode,
                 demo_receptionist_number=settings.demo_receptionist_number,
             )
