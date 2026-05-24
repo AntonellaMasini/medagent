@@ -76,15 +76,19 @@ class TestExplicitUrgency:
         assert req is not None
         assert req.max_weeks == 1
 
-    def test_routine_keyword_marks_as_non_urgent(self):
+    def test_routine_keyword_falls_back_to_user_default(self):
+        """Saying "it's routine" should leave max_weeks=None so the use case
+        applies the user's profile default — NOT extend the booking window
+        past it (a previous version returned 6 weeks here, which widened
+        the search beyond the user's own 4-week default)."""
         req = parse_appointment_intent("dermatologo para chequeo")
         assert req is not None
-        assert req.max_weeks == 6
+        assert req.max_weeks is None
 
-    def test_english_routine_marks_as_non_urgent(self):
+    def test_english_routine_falls_back_to_user_default(self):
         req = parse_appointment_intent("dermatologo, routine checkup")
         assert req is not None
-        assert req.max_weeks == 6
+        assert req.max_weeks is None
 
     def test_urgent_beats_non_urgent_when_both_present(self):
         """'I need a routine checkup but I'm in pain' — pain wins.
@@ -116,11 +120,22 @@ class TestHighRiskSpecialtyDefaults:
 
     def test_explicit_routine_overrides_high_risk_default(self):
         """If a user explicitly says it's a routine cardiology checkup
-        (e.g. annual control), respect that. Explicit user signal beats
-        the specialty-based heuristic."""
+        (e.g. annual control), respect that. Non-urgent signal short-
+        circuits the high-risk specialty override → max_weeks=None, so
+        the user's profile default applies (NOT the 1-week cardio
+        default that would otherwise kick in)."""
         req = parse_appointment_intent("cardiologia, chequeo rutinario")
         assert req is not None
-        assert req.max_weeks == 6
+        assert req.max_weeks is None
+
+    def test_resolution_order_urgent_beats_high_risk_and_non_urgent(self):
+        """Sanity: explicit 'urgent' beats everything else, even with a
+        non-urgent keyword and a high-risk specialty in the same message."""
+        req = parse_appointment_intent(
+            "cardiologia chequeo rutinario pero me duele"
+        )
+        assert req is not None
+        assert req.max_weeks == 1
 
 
 # ---- regression: substring false-positives that an earlier version had ----
