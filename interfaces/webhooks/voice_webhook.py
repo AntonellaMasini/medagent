@@ -242,16 +242,24 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
 
         try:
             client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            response = await client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=300,
-                system=system_prompt,
-                messages=messages,
-            )
-            text = response.content[0].text
-            logger.info("Claude response: %s", text[:120])
-            _check_booking_outcome(text)
-            await session.send_response(text)
+
+            async def _claude_stream():
+                """Yield Claude text chunks; accumulate for outcome check."""
+                accumulated = []
+                async with client.messages.stream(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=300,
+                    system=system_prompt,
+                    messages=messages,
+                ) as stream:
+                    async for chunk in stream.text_stream:
+                        accumulated.append(chunk)
+                        yield chunk
+                full_text = "".join(accumulated)
+                logger.info("Claude response: %s", full_text[:120])
+                _check_booking_outcome(full_text)
+
+            await session.send_response(_claude_stream())
         except Exception:
             logger.exception("Error in on_transcript handler")
             await session.send_response(
@@ -477,63 +485,77 @@ def _get_booking_system_prompt(
     max_weeks_out: int = 4,
     doctor_gender: str = "",
 ) -> str:
+    # Build the greeting line — prescriptive to avoid Claude improvising
+    if patient_name:
+        greeting = (
+            f"Cuando te presentes, di EXACTAMENTE: "
+            f"'Hola, buenos días. Soy el asistente de la paciente {patient_name}.'"
+        )
+    else:
+        greeting = (
+            "Cuando te presentes, di: 'Hola, buenos días. Soy el asistente "
+            "de un paciente.'"
+        )
+
+    # Build specialty + gender lines
     gender_line = ""
     if doctor_gender and specialty:
         gendered = _gendered_specialty(specialty, doctor_gender)
         article = "una" if doctor_gender == "female" else "un"
-        preference_word = "una mujer" if doctor_gender == "female" else "un hombre"
+        gender_word = "mujer" if doctor_gender == "female" else "hombre"
         specialty_line = (
-            f"La especialidad que necesitas es: {specialty}. "
-            f"Pide cita con {article} {gendered} (usa la forma correcta del género).\n"
+            f"Pide cita con {article} {gendered}. "
+            f"SIEMPRE usa la forma '{article} {gendered}' — nunca digas "
+            f"solo '{specialty.lower()}'.\n"
         )
         gender_line = (
-            f"\n\nIMPORTANTE — PREFERENCIA DE GÉNERO:\n"
-            f"El/la cliente pidió específicamente por {preference_word}. "
-            f"Menciónalo a la recepcionista si es necesario.\n"
+            f"\n\n*** PREFERENCIA DE GÉNERO (OBLIGATORIO) ***\n"
+            f"El paciente quiere un doctor que sea {gender_word}. "
+            f"Debes decir explícitamente a la recepcionista que buscas "
+            f"{article} {gendered}. Si la recepcionista ofrece un doctor "
+            f"del género contrario, rechaza amablemente y pide "
+            f"específicamente {article} {gendered}. "
+            f"Al confirmar la cita, verifica que el doctor sea {gender_word}.\n"
         )
     elif specialty:
-        specialty_line = (
-            f"La especialidad que necesitas es: {specialty}.\n"
-        )
+        specialty_line = f"La especialidad es: {specialty}.\n"
     else:
         specialty_line = ""
-    patient_line = (
-        f"El nombre del paciente es: {patient_name}.\n"
-        if patient_name
-        else ""
-    )
+
     busy_line = ""
     if busy_intervals:
         busy_list = "; ".join(busy_intervals[:20])
         busy_line = (
-            f"\n\nIMPORTANTE — HORARIOS NO DISPONIBLES DEL PACIENTE:\n"
+            f"\n\n*** HORARIOS NO DISPONIBLES (OBLIGATORIO) ***\n"
             f"El paciente tiene compromisos en estos horarios: {busy_list}.\n"
             f"Necesita al menos 45 minutos de margen antes y después de cada "
-            f"compromiso. NO aceptes citas que caigan en estos horarios o dentro "
-            f"del margen de 45 minutos.\n"
+            f"compromiso. NO aceptes citas que se solapen con estos horarios "
+            f"o que caigan dentro del margen de 45 minutos. Si te ofrecen un "
+            f"horario que choca, di que ese horario no le viene bien y pide "
+            f"otra opción.\n"
         )
     weeks_line = (
-        f"\n\nIMPORTANTE — PLAZO MÁXIMO:\n"
-        f"La cita debe ser dentro de las próximas {max_weeks_out} semanas. "
-        f"Si solo ofrecen fechas más lejanas, rechaza amablemente y di "
-        f"SIN_DISPONIBILIDAD.\n"
+        f"\n\nPLAZO MÁXIMO: La cita debe ser dentro de las próximas "
+        f"{max_weeks_out} semanas. Si solo ofrecen fechas más lejanas, "
+        f"rechaza amablemente y di SIN_DISPONIBILIDAD.\n"
     )
     return (
-        "Eres un asistente de reservas médicas que llama a clínicas en España "
-        "para agendar citas EN NOMBRE DE UN PACIENTE. Hablas en español de "
-        "forma clara, profesional y cortés. Tú eres QUIEN LLAMA, no la "
-        "recepcionista. Tu objetivo es:\n"
-        f"1. Identificarte como asistente del paciente. {patient_line}"
-        f"2. Pedir disponibilidad para la especialidad. {specialty_line}"
-        "3. Si hay disponibilidad, confirmar fecha y hora.\n"
-        "4. Dar el nombre completo del paciente para que la clínica registre la cita.\n"
-        "5. Agradecer y despedirte.\n\n"
-        "Si la recepcionista dice que no hay disponibilidad, agradece "
-        "amablemente y despídete. Sé conciso y natural — estás al teléfono.\n\n"
-        "IMPORTANTE: Cuando consigas confirmar una cita, incluye en tu "
-        "última respuesta la palabra CITA_CONFIRMADA seguida de la fecha y "
-        "hora. Ejemplo: 'Perfecto, CITA_CONFIRMADA martes 27 de mayo a las "
-        "10:00. Muchas gracias.'\n\n"
+        "Eres un asistente que llama a clínicas en España para agendar "
+        "citas médicas EN NOMBRE DE UN PACIENTE. Hablas en español de "
+        "forma clara, profesional y cortés. Tú eres QUIEN LLAMA.\n\n"
+        f"SALUDO OBLIGATORIO: {greeting}\n\n"
+        "Pasos de la conversación:\n"
+        f"1. Preséntate con el saludo exacto de arriba.\n"
+        f"2. Pide disponibilidad. {specialty_line}"
+        "3. Si hay disponibilidad, confirma fecha y hora.\n"
+        f"4. Da el nombre del paciente{f' ({patient_name})' if patient_name else ''} "
+        "para que registren la cita.\n"
+        "5. Agradece y despídete.\n\n"
+        "Sé conciso y natural — estás al teléfono. Responde con frases "
+        "cortas, no con párrafos.\n\n"
+        "RESULTADO: Cuando confirmes una cita, incluye CITA_CONFIRMADA "
+        "seguido de la fecha y hora. Ejemplo: 'Perfecto, CITA_CONFIRMADA "
+        "martes 27 de mayo a las 10:00. Muchas gracias.'\n"
         "Si no hay disponibilidad, di SIN_DISPONIBILIDAD antes de despedirte."
         + busy_line
         + weeks_line
