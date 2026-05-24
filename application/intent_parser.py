@@ -72,11 +72,10 @@ _HIGH_RISK_SPECIALTY_NAMES: frozenset[str] = frozenset({
     "NEUROCIRUGÍA INFANTIL",
 })
 
-# How many weeks out we'll accept a slot for each urgency level. Tuned
-# against typical Spanish private-insurance wait times; revisit if real
-# bookings show these are wrong.
+# How many weeks out we'll accept a slot when the message explicitly
+# signals urgency. Tuned against typical Spanish private-insurance wait
+# times; revisit if real bookings show this is wrong.
 _URGENT_MAX_WEEKS = 1
-_NON_URGENT_MAX_WEEKS = 6
 
 
 def parse_appointment_intent(text: str) -> AppointmentRequest | None:
@@ -86,18 +85,38 @@ def parse_appointment_intent(text: str) -> AppointmentRequest | None:
     asking the user to clarify what they need. (We deliberately do not
     invent a default specialty: the wrong one is worse than asking.)
 
-    `max_weeks` resolution order, first hit wins:
-      1. Explicit urgent keywords in the text → 1 week.
-      2. Explicit non-urgent keywords ("rutina", "checkup", …) → 6 weeks.
-      3. High-risk specialty default (cardio / onco / neuro) → 1 week.
-      4. None → caller falls back to `user.availability.max_weeks_out`.
+    `max_weeks` resolution order:
+
+      1. Explicit urgent keywords ("urgente", "dolor", "asap", …)
+         → 1 week. Tighter than the user's profile default.
+
+      2. Explicit non-urgent keywords ("rutina", "chequeo", "checkup", …)
+         → None (use user's profile default), AND short-circuit the
+         high-risk specialty heuristic below. The user told us it's
+         routine; we shouldn't override that with a CARDIO/ONCO/NEURO
+         default, and we also shouldn't *widen* their booking window
+         past their own configured default (a previous version set
+         this to 6 weeks, which was presumptuous — `max_weeks_out=4`
+         is the project-wide default and most users will have just
+         that on their profile).
+
+      3. No explicit signal + high-risk specialty (cardio / onco / neuro
+         from the allow-list) → 1 week.
+
+      4. Otherwise → None. Caller falls back to
+         `user.availability.max_weeks_out`.
     """
     specialty = _extract_specialty(text)
     if specialty is None:
         return None
 
-    max_weeks = _detect_urgency_from_text(text)
-    if max_weeks is None:
+    if _is_explicitly_urgent(text):
+        max_weeks: int | None = _URGENT_MAX_WEEKS
+    elif _is_explicitly_non_urgent(text):
+        # User said it's routine — respect that and use their normal
+        # profile default. Skip the high-risk specialty override below.
+        max_weeks = None
+    else:
         max_weeks = _high_risk_specialty_default(specialty)
 
     return AppointmentRequest(
@@ -128,19 +147,20 @@ def _extract_specialty(text: str) -> Specialty | None:
     return None
 
 
-def _detect_urgency_from_text(text: str) -> int | None:
-    """Return urgency-in-weeks if the user's message has an explicit
-    signal, else None.
+def _is_explicitly_urgent(text: str) -> bool:
+    lower = text.lower()
+    return any(keyword in lower for keyword in _URGENT_KEYWORDS)
 
-    Urgent keywords beat non-urgent ones — someone who writes "I need a
-    routine checkup but I'm in pain" gets the urgent interpretation.
+
+def _is_explicitly_non_urgent(text: str) -> bool:
+    """True if the user's message contains a routine-care signal.
+
+    Note: only checked when `_is_explicitly_urgent` is already False,
+    so we don't need to worry about the "routine checkup but in pain"
+    case — urgent wins by being checked first.
     """
     lower = text.lower()
-    if any(keyword in lower for keyword in _URGENT_KEYWORDS):
-        return _URGENT_MAX_WEEKS
-    if any(keyword in lower for keyword in _NON_URGENT_KEYWORDS):
-        return _NON_URGENT_MAX_WEEKS
-    return None
+    return any(keyword in lower for keyword in _NON_URGENT_KEYWORDS)
 
 
 def _high_risk_specialty_default(specialty: Specialty) -> int | None:
