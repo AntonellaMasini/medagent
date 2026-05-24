@@ -72,7 +72,9 @@ def build_whatsapp_router(
         if user is not None:
             # Handle "connect calendar" command
             if _is_calendar_command(body) and calendar_auth_url:
-                link = f"{calendar_auth_url}?phone={phone}"
+                from urllib.parse import quote
+
+                link = f"{calendar_auth_url}?phone={quote(phone, safe='')}"
                 background.add_task(
                     whatsapp.send_text,
                     phone,

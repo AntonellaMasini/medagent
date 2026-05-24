@@ -57,7 +57,9 @@ class BookAppointmentUseCase:
             and self._calendar_auth_url
             and not user.google_calendar_token
         ):
-            link = f"{self._calendar_auth_url}?phone={user.phone}"
+            from urllib.parse import quote
+
+            link = f"{self._calendar_auth_url}?phone={quote(user.phone, safe='')}"
             await self._whatsapp.send_text(
                 user.phone,
                 "Tip: Connect your Google Calendar so I can check your "

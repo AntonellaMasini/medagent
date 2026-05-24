@@ -28,6 +28,7 @@ def build_google_auth_router(
         The `phone` query param identifies which user is authorizing.
         It's passed as `state` so we can link the token back to the user.
         """
+        phone = _normalize_phone(phone)
         auth_url = calendar_service.build_auth_url(state=phone)
         return RedirectResponse(url=auth_url)
 
@@ -41,7 +42,7 @@ def build_google_auth_router(
 
         Exchange the code for tokens and store the refresh token.
         """
-        phone = state
+        phone = _normalize_phone(state)
         if not phone:
             return HTMLResponse(
                 content="<h1>Error</h1><p>Missing user identifier (state).</p>",
@@ -93,3 +94,15 @@ def build_google_auth_router(
         )
 
     return router
+
+
+def _normalize_phone(raw: str) -> str:
+    """Ensure the phone has a '+' prefix.
+
+    In URL query strings '+' is decoded as a space, so
+    '+16174777515' arrives as ' 16174777515'.  Fix that here.
+    """
+    cleaned = raw.strip()
+    if cleaned and not cleaned.startswith("+"):
+        cleaned = "+" + cleaned
+    return cleaned
