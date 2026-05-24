@@ -1,14 +1,17 @@
-"""ElevenLabs Custom LLM endpoint + legacy handlers.
+"""ElevenLabs Custom LLM endpoint + Twilio ↔ Speech Engine bridge.
 
 Endpoints:
   POST /v1/chat/completions — OpenAI-compatible endpoint that ElevenLabs
        calls with conversation transcripts. We forward to Claude and stream
        back in OpenAI SSE format.
-  WS   /ws  — Speech Engine WebSocket handler (alternative transport).
+  WS   /ws  — Speech Engine WebSocket handler (server-side SDK transport).
+  POST /twiml/outbound — returns TwiML that connects call audio to our bridge.
+  WS   /media-stream — Twilio Media Stream ↔ ElevenLabs Conversation bridge.
   POST /webhooks/voice/status — Twilio status callback.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -250,6 +253,115 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
         logger.exception("Speech Engine session error")
     finally:
         logger.info("Speech Engine session ended")
+
+
+@router.post("/twiml/outbound")
+async def twiml_outbound(request: Request) -> Response:
+    """Return TwiML that connects the outbound call to our media-stream bridge.
+
+    Twilio POSTs here when the outbound call connects.  We respond with
+    ``<Connect><Stream>`` pointing at our ``/media-stream`` WebSocket so
+    Twilio pipes the call audio to us for Speech Engine processing.
+    """
+    from config import get_settings
+
+    settings = get_settings()
+    # Build the WebSocket URL from our public base_url
+    ws_base = settings.base_url.replace("https://", "wss://").replace("http://", "ws://")
+    stream_url = f"{ws_base}/media-stream"
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Response>"
+        "<Connect>"
+        f'<Stream url="{stream_url}" />'
+        "</Connect>"
+        "</Response>"
+    )
+    logger.info("TwiML outbound: stream_url=%s", stream_url)
+    return Response(content=twiml, media_type="application/xml")
+
+
+@router.websocket("/media-stream")
+async def media_stream_bridge(websocket: WebSocket) -> None:
+    """Bridge Twilio Media Stream audio ↔ ElevenLabs Conversation (Speech Engine).
+
+    Twilio connects here after our TwiML ``<Connect><Stream>`` instruction.
+    We create an ElevenLabs ``Conversation`` with a ``TwilioAudioInterface``
+    that transcodes mulaw 8 kHz ↔ PCM 16 kHz and forward audio bidirectionally.
+    """
+    await websocket.accept()
+
+    from config import get_settings
+    from elevenlabs import ElevenLabs
+    from elevenlabs.conversational_ai.conversation import Conversation
+
+    from infrastructure.voice.twilio_audio_interface import TwilioAudioInterface
+
+    settings = get_settings()
+    iface = TwilioAudioInterface()
+
+    el_client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+    conversation = Conversation(
+        el_client,
+        settings.elevenlabs_agent_id,
+        requires_auth=True,
+        audio_interface=iface,
+        callback_agent_response=lambda resp: logger.info(
+            "Agent response: %s", resp[:120] if resp else ""
+        ),
+        callback_user_transcript=lambda txt: logger.info(
+            "User said: %s", txt[:120] if txt else ""
+        ),
+    )
+
+    logger.info("Starting ElevenLabs Conversation for media-stream bridge")
+    conversation.start_session()
+
+    try:
+        # Pump loop: read Twilio messages and forward audio to ElevenLabs,
+        # while also draining ElevenLabs audio back to Twilio.
+        async def _pump_twilio_to_el() -> None:
+            """Read Twilio WebSocket messages and feed audio into the interface."""
+            try:
+                while True:
+                    raw = await websocket.receive_text()
+                    msg = json.loads(raw)
+                    event = msg.get("event", "")
+                    if event == "start":
+                        stream_sid = msg["start"]["streamSid"]
+                        iface.set_stream_sid(stream_sid)
+                        logger.info("Twilio stream started: sid=%s", stream_sid)
+                    elif event == "media":
+                        iface.receive_twilio_audio(msg["media"]["payload"])
+                    elif event == "stop":
+                        logger.info("Twilio stream stopped")
+                        return
+            except Exception:
+                logger.debug("Twilio WS read ended", exc_info=True)
+
+        async def _pump_el_to_twilio() -> None:
+            """Drain ElevenLabs audio and send to Twilio."""
+            try:
+                while True:
+                    msgs = iface.drain_output()
+                    for m in msgs:
+                        await websocket.send_text(m)
+                    await asyncio.sleep(0.02)  # ~50 fps drain rate
+            except Exception:
+                logger.debug("Twilio WS write ended", exc_info=True)
+
+        await asyncio.gather(
+            _pump_twilio_to_el(),
+            _pump_el_to_twilio(),
+            return_exceptions=True,
+        )
+    except Exception:
+        logger.exception("Media stream bridge error")
+    finally:
+        conversation.end_session()
+        conversation.wait_for_session_end()
+        logger.info("Media stream bridge ended")
 
 
 @router.post("/webhooks/voice/status")

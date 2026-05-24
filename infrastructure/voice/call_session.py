@@ -1,10 +1,13 @@
 """Single-call session: places outbound call via Twilio + ElevenLabs Speech Engine.
 
 Flow:
-  1. register_call() tells ElevenLabs about the upcoming call → returns TwiML.
-  2. Twilio REST API dials the clinic with that TwiML.
-  3. Twilio streams audio to ElevenLabs (STT/TTS).
-  4. ElevenLabs connects to our /v1/chat/completions endpoint for LLM logic.
+  1. Twilio REST API dials the clinic with ``url`` pointing at our TwiML endpoint.
+  2. Our ``/twiml/outbound`` endpoint returns ``<Connect><Stream>`` TwiML
+     that pipes call audio to our ``/media-stream`` WebSocket bridge.
+  3. The bridge transcodes mulaw↔PCM and feeds audio into an ElevenLabs
+     ``Conversation`` (Speech Engine) via a custom ``TwilioAudioInterface``.
+  4. ElevenLabs handles STT/TTS; our ``/v1/chat/completions`` endpoint
+     provides the LLM logic (Claude).
 """
 from __future__ import annotations
 
@@ -203,15 +206,16 @@ async def run_call_session(
     constraints: AvailabilityWindow,
     to_phone: str,
 ) -> CallOutcome:
-    """Place an outbound call via Twilio, using ElevenLabs Speech Engine.
+    """Place an outbound call via Twilio + ElevenLabs Speech Engine.
 
-    1. ``register_call`` tells ElevenLabs about the call and returns TwiML
-       with ``<Connect><Stream>`` pointing at the Speech Engine audio bridge.
-    2. Twilio REST API dials the clinic with that TwiML.
+    1. Twilio REST API dials the clinic; the ``url`` parameter points at
+       our ``/twiml/outbound`` endpoint which returns TwiML with
+       ``<Connect><Stream>`` pointing at our audio-bridge WebSocket.
+    2. The bridge WebSocket receives Twilio media-stream audio, transcodes
+       mulaw↔PCM, and feeds it into an ElevenLabs ``Conversation`` session.
     3. ElevenLabs handles STT/TTS; our ``/v1/chat/completions`` endpoint
        provides the LLM logic (Claude).
     """
-    from elevenlabs import ElevenLabs
     from twilio.rest import Client as TwilioClient
 
     from infrastructure.voice.elevenlabs_voice_caller import VoiceCallerConfig
@@ -228,28 +232,18 @@ async def run_call_session(
     register_call(call_id, ctx)
 
     try:
-        el_client = ElevenLabs(api_key=cfg.elevenlabs_api_key)
         specialty_name = doctor.specialty.name
+        set_active_specialty(call_id, specialty_name)
 
-        # Step 1: register the call with ElevenLabs → get TwiML
-        twiml_xml = el_client.conversational_ai.twilio.register_call(
-            agent_id=cfg.elevenlabs_agent_id,
-            from_number=cfg.twilio_voice_number,
-            to_number=to_phone,
-            direction="outbound",
-        )
-        logger.info(
-            "Registered call with ElevenLabs: call_id=%s → %s",
-            call_id,
-            to_phone,
-        )
-
-        # Step 2: place the outbound call via Twilio REST API
+        # Place the outbound call via Twilio REST API.
+        # Twilio will POST to our /twiml/outbound endpoint to get TwiML
+        # instructions, which connect the call audio to our bridge WebSocket.
         twilio_client = TwilioClient(
             cfg.twilio_account_sid, cfg.twilio_auth_token
         )
+        twiml_url = f"{cfg.base_url}/twiml/outbound"
         twilio_call = twilio_client.calls.create(
-            twiml=twiml_xml,
+            url=twiml_url,
             to=to_phone,
             from_=cfg.twilio_voice_number,
             status_callback=f"{cfg.base_url}/webhooks/voice/status",
@@ -261,14 +255,13 @@ async def run_call_session(
             twilio_call.sid,
             to_phone,
         )
-
-        set_active_specialty(call_id, specialty_name)
     except Exception as exc:
         logger.exception("Failed to place outbound call to %s", to_phone)
         _active_calls.pop(call_id, None)
         return CallOutcome(doctor=doctor, success=False, reason=f"call_failed: {exc}")
 
-    # Wait for the conversation to complete (resolved by the /ws handler).
+    # Wait for the conversation to complete (resolved by the chat-completions
+    # stream or the Twilio status callback).
     try:
         await asyncio.wait_for(ctx.outcome_event.wait(), timeout=300)
     except asyncio.TimeoutError:
