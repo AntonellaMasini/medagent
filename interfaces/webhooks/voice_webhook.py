@@ -39,13 +39,14 @@ async def chat_completions(request: Request) -> StreamingResponse:
     messages = body.get("messages", [])
     stream_requested = body.get("stream", False)
 
-    # Get the specialty from the active call session
-    from infrastructure.voice.call_session import get_active_specialty
+    # Get the specialty and busy intervals from the active call session
+    from infrastructure.voice.call_session import get_active_specialty, get_busy_intervals
 
     specialty = get_active_specialty()
+    busy_intervals = get_busy_intervals()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
-    system_prompt = _get_booking_system_prompt(specialty)
+    system_prompt = _get_booking_system_prompt(specialty, busy_intervals)
     conversation_messages = []
     for msg in messages:
         if msg["role"] == "system":
@@ -243,12 +244,22 @@ async def voice_status(request: Request) -> Response:
     return Response(content="", status_code=204)
 
 
-def _get_booking_system_prompt(specialty: str = "") -> str:
+def _get_booking_system_prompt(specialty: str = "", busy_intervals: list[str] | None = None) -> str:
     specialty_line = (
         f"La especialidad que necesitas es: {specialty}.\n"
         if specialty
         else ""
     )
+    busy_line = ""
+    if busy_intervals:
+        busy_list = "; ".join(busy_intervals[:20])  # Limit to avoid prompt bloat
+        busy_line = (
+            f"\n\nIMPORTANTE — HORARIOS NO DISPONIBLES DEL PACIENTE:\n"
+            f"El paciente tiene compromisos en estos horarios: {busy_list}.\n"
+            f"Necesita al menos 45 minutos de margen antes y después de cada "
+            f"compromiso. NO aceptes citas que caigan en estos horarios o dentro "
+            f"del margen de 45 minutos.\n"
+        )
     return (
         "Eres un asistente de reservas médicas que llama a clínicas en España "
         "para agendar citas EN NOMBRE DE UN PACIENTE. Hablas en español de "
@@ -265,4 +276,5 @@ def _get_booking_system_prompt(specialty: str = "") -> str:
         "hora. Ejemplo: 'Perfecto, CITA_CONFIRMADA martes 27 de mayo a las "
         "10:00. Muchas gracias.'\n\n"
         "Si no hay disponibilidad, di SIN DISPONIBILIDAD antes de despedirte."
+        + busy_line
     )

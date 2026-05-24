@@ -72,6 +72,18 @@ class BookAppointmentUseCase:
                 "User has %d busy intervals — voice caller will avoid conflicts",
                 len(busy_intervals),
             )
+            # Store intervals so the voice webhook system prompt can reference them
+            from infrastructure.voice.call_session import set_busy_intervals
+
+            formatted = [
+                f"{s.strftime('%a %d %b %H:%M')}–{e.strftime('%H:%M')}"
+                for s, e in busy_intervals
+            ]
+            set_busy_intervals(formatted)
+        else:
+            from infrastructure.voice.call_session import set_busy_intervals
+
+            set_busy_intervals([])
         outcome = await self._voice_caller.book_first_available(
             doctors,
             on_behalf_of=user,

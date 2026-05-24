@@ -38,6 +38,10 @@ _active_calls: dict[str, CallContext] = {}
 # Specialty for the current active call (simple approach since calls are sequential).
 _active_specialty: str = ""
 
+# Busy intervals for the current active call (passed to system prompt so Claude
+# avoids booking during these times). Format: list of (start_iso, end_iso) strings.
+_active_busy_intervals: list[str] = []
+
 
 def set_active_specialty(conversation_id: str, specialty: str) -> None:
     global _active_specialty
@@ -46,6 +50,15 @@ def set_active_specialty(conversation_id: str, specialty: str) -> None:
 
 def get_active_specialty() -> str:
     return _active_specialty
+
+
+def set_busy_intervals(intervals: list[str]) -> None:
+    global _active_busy_intervals
+    _active_busy_intervals = intervals
+
+
+def get_busy_intervals() -> list[str]:
+    return _active_busy_intervals
 
 
 def register_call(call_id: str, ctx: CallContext) -> None:
