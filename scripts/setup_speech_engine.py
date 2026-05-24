@@ -56,6 +56,7 @@ def main() -> None:
 
     tts_config = TtsConversationalConfigInput(
         voice_id=voice_id,
+        model_id="eleven_flash_v2_5",
     )
 
     if existing_id and existing_id.startswith("seng_"):
