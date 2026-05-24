@@ -222,14 +222,23 @@ class CignaScraper(BaseInsurerScraper):
         # heuristics can't distinguish "logged in" from "shell loading".
         if has_cached_cookies:
             await page.goto(self._doctors_url, wait_until="domcontentloaded")
-            if await self._is_authenticated(page):
+            if await self._cached_session_works(page, context):
                 logger.info(
                     "Cigna session resumed from cached cookies for %s", user.phone
                 )
                 return
             logger.info(
-                "Cached cookies didn't work for %s; logging in fresh", user.phone
+                "Cached cookies for %s failed validation; clearing and "
+                "logging in fresh", user.phone,
             )
+            # Nuke the stale cache so this run AND future runs don't keep
+            # tripping over it. The fresh-login path below will write a new
+            # cookie file on success.
+            await context.clear_cookies()
+            try:
+                self._cookie_path(user.phone).unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning("Could not delete stale cookie file: %s", exc)
 
         logger.info("No valid session; logging in fresh for %s", user.phone)
         logger.info("Navigating to login URL: %s", self._login_url)
@@ -308,6 +317,61 @@ class CignaScraper(BaseInsurerScraper):
             return True
         except Exception:
             return False
+
+    async def _cached_session_works(
+        self, page: Page, context: BrowserContext
+    ) -> bool:
+        """Stricter validation for the cached-cookies fast path.
+
+        `_is_authenticated()` only checks URL + DOM heuristics, which is
+        enough right after a fresh login (we just authed, the JWT is
+        live). But for resumed sessions from disk, Okta's session cookies
+        often outlive the short-lived Cigna JWT (~20 min) — the SPA shell
+        still loads at /cp/cuadro-medico (so the URL check passes) but
+        the very next private API call gets redirected to a login HTML
+        page, crashing the scraper midway.
+
+        Validate by actually trying the cheapest authenticated API call
+        (/cp/api/private/home) and confirming it returns JSON, not HTML.
+        If it returns HTML, the cached session is stale → caller falls
+        through to fresh login.
+        """
+        if not await self._is_authenticated(page):
+            return False
+        try:
+            response = await context.request.get(
+                "https://clientes.cigna.es/cp/api/private/home",
+                headers={
+                    "Accept": "application/json, text/plain, */*",
+                    "Referer": "https://clientes.cigna.es/cp/home",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                timeout=8000,
+            )
+        except Exception as exc:
+            logger.info(
+                "Cached session validation request failed: %s — treating as stale",
+                exc,
+            )
+            return False
+
+        if not response.ok:
+            logger.info(
+                "Cached session validation got HTTP %d — treating as stale",
+                response.status,
+            )
+            return False
+        content_type = (
+            (response.headers or {}).get("content-type", "").lower()
+        )
+        if "application/json" not in content_type:
+            logger.info(
+                "Cached session validation got content-type=%s (not JSON) "
+                "— JWT probably expired, treating as stale",
+                content_type or "<missing>",
+            )
+            return False
+        return True
 
     async def _looks_like_login(self, page: Page) -> bool:
         login_input = page.locator('input[placeholder*="NIE"]').first
