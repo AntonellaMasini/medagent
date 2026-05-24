@@ -44,6 +44,7 @@ def main() -> None:
         sys.exit(1)
 
     from elevenlabs import ElevenLabs
+    from elevenlabs.types.base_turn_config import BaseTurnConfig
     from elevenlabs.types.conversation_config_input import ConversationConfigInput
     from elevenlabs.types.speech_engine_config import SpeechEngineConfig
     from elevenlabs.types.tts_conversational_config_input import (
@@ -61,12 +62,20 @@ def main() -> None:
     )
 
     # First message spoken by the bot when the call connects.
+    # Short so it finishes before the receptionist interrupts.
     # Uses {{patient_name}} dynamic variable filled at call time.
     conv_config = ConversationConfigInput(
         first_message=(
-            "Hola, buenos días. Soy el asistente de {{patient_name}}. "
-            "Llamo para consultar si tienen disponibilidad para una cita, por favor."
+            "Hola, buenos días. Llamo de parte de {{patient_name}}."
         ),
+    )
+
+    # Turn detection: 'patient' = less eager to interrupt, reducing
+    # mid-sentence cut-offs. speculative_turn pre-generates LLM responses
+    # during silence to reduce perceived latency.
+    turn_config = BaseTurnConfig(
+        turn_eagerness="patient",
+        speculative_turn=True,
     )
 
     if existing_id and existing_id.startswith("seng_"):
@@ -77,6 +86,7 @@ def main() -> None:
             name=args.name,
             speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
             tts=tts_config,
+            turn=turn_config,
             conversation=conv_config,
             language="es",
         )
@@ -90,6 +100,7 @@ def main() -> None:
             name=args.name,
             speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
             tts=tts_config,
+            turn=turn_config,
             conversation=conv_config,
             language="es",
         )

@@ -52,7 +52,10 @@ def create_app() -> FastAPI:
         format="%(asctime)s %(levelname)s %(name)s | %(message)s",
     )
     # Silence noisy low-level loggers that drown out conversation logs
-    for noisy in ("websockets", "httpcore", "httpx", "aiosqlite", "python_multipart"):
+    for noisy in (
+        "websockets", "httpcore", "httpx", "aiosqlite",
+        "python_multipart", "anthropic",
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     # ---- Infrastructure ----
