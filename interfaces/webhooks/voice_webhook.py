@@ -39,12 +39,12 @@ async def chat_completions(request: Request) -> StreamingResponse:
     messages = body.get("messages", [])
     stream_requested = body.get("stream", False)
 
-    # Extract system message if present, pass rest as conversation
+    # Always use our booking system prompt (ignore ElevenLabs' generic one)
     system_prompt = _get_booking_system_prompt()
     conversation_messages = []
     for msg in messages:
         if msg["role"] == "system":
-            system_prompt = msg["content"]
+            continue  # Skip — we use our own booking prompt
         else:
             conversation_messages.append(
                 {"role": msg["role"], "content": msg["content"]}
