@@ -668,14 +668,19 @@ class CignaScraper(BaseInsurerScraper):
         for a container whose text mentions "Phone" or matches a Spanish
         phone-number pattern, then click that container's button.
         """
+        # Wait up to 15s for the verify-identity screen to render. Cigna's
+        # portal renders this screen via SPA after the login XHR settles;
+        # latency varies (anywhere from <1s to ~10s in practice). The
+        # previous is_visible(timeout=2000) check did NOT actually block —
+        # it returned False the moment the element wasn't yet visible —
+        # so when the page rendered slowly the bot would silently skip the
+        # whole SMS flow and bounce back to /cp/login. wait_for actually
+        # blocks until the element appears.
         try:
-            visible = await page.get_by_text("Verifícate").first.is_visible(
-                timeout=2000
+            await page.get_by_text("Verifícate").first.wait_for(
+                state="visible", timeout=15000
             )
         except PlaywrightTimeout:
-            visible = False
-
-        if not visible:
             return  # verify-identity screen not present — skip
 
         logger.info("Cigna verify-identity screen detected; selecting SMS")
