@@ -76,17 +76,14 @@ def create_app() -> FastAPI:
         headless=settings.playwright_headless,
         timeout_ms=settings.playwright_timeout_ms,
     )
-    # Use real voice caller if ElevenLabs + Twilio Voice are configured.
-    if settings.elevenlabs_api_key and settings.twilio_voice_number:
+    # Use real voice caller if ElevenLabs Speech Engine is configured.
+    if settings.elevenlabs_api_key and settings.elevenlabs_agent_id:
         voice_caller = ElevenLabsVoiceCaller(
             config=VoiceCallerConfig(
-                twilio_account_sid=settings.twilio_account_sid,
-                twilio_auth_token=settings.twilio_auth_token,
-                twilio_voice_number=settings.twilio_voice_number,
                 elevenlabs_api_key=settings.elevenlabs_api_key,
-                elevenlabs_voice_id=settings.elevenlabs_voice_id,
+                elevenlabs_agent_id=settings.elevenlabs_agent_id,
+                elevenlabs_phone_number_id=settings.elevenlabs_phone_number_id,
                 anthropic_api_key=settings.anthropic_api_key,
-                base_url_ws=settings.base_url_ws or settings.base_url,
                 demo_mode=settings.demo_mode,
                 demo_receptionist_number=settings.demo_receptionist_number,
             )

@@ -44,13 +44,10 @@ def _make_user() -> User:
 
 def _make_config(**overrides) -> VoiceCallerConfig:
     defaults = dict(
-        twilio_account_sid="ACtest",
-        twilio_auth_token="test_token",
-        twilio_voice_number="+15551234567",
         elevenlabs_api_key="el_test_key",
-        elevenlabs_voice_id="voice_123",
+        elevenlabs_agent_id="seng_test123",
+        elevenlabs_phone_number_id="phnum_test123",
         anthropic_api_key="sk-ant-test",
-        base_url_ws="wss://test.ngrok.io",
     )
     defaults.update(overrides)
     return VoiceCallerConfig(**defaults)
@@ -232,50 +229,19 @@ class TestSpeechEngineHandler:
 
 
 class TestVoiceWebhook:
-    """Tests for the voice webhook TwiML endpoint."""
+    """Tests for the voice webhook endpoints."""
 
     @pytest.mark.asyncio
-    async def test_outbound_returns_twiml_with_stream(self):
+    async def test_status_callback_returns_204(self):
         from fastapi.testclient import TestClient
 
         from main import create_app
 
         app = create_app()
         client = TestClient(app)
-        response = client.get("/webhooks/voice/outbound")
-        assert response.status_code == 200
-        assert "application/xml" in response.headers["content-type"]
-        assert "<Stream" in response.text
-        assert "/webhooks/voice/stream" in response.text
-
-    @pytest.mark.asyncio
-    async def test_status_callback_resolves_failed_call(self):
-        from fastapi.testclient import TestClient
-
-        from infrastructure.voice.call_session import (
-            CallContext,
-            register_call,
-        )
-        from main import create_app
-
-        app = create_app()
-        client = TestClient(app)
-
-        doctor = _make_doctor()
-        user = _make_user()
-        ctx = CallContext(
-            call_id="test-1",
-            doctor=doctor,
-            user=user,
-            constraints=AvailabilityWindow(),
-        )
-        register_call("CA_test_123", ctx)
 
         response = client.post(
             "/webhooks/voice/status",
             data={"CallSid": "CA_test_123", "CallStatus": "no-answer"},
         )
         assert response.status_code == 204
-        assert ctx.outcome is not None
-        assert ctx.outcome.success is False
-        assert ctx.outcome.reason == "no-answer"

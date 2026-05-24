@@ -1,200 +1,116 @@
-"""Twilio Voice webhooks: TwiML for outbound calls + Media Stream WebSocket.
+"""ElevenLabs Speech Engine WebSocket handler.
 
 Endpoints:
-  GET  /webhooks/voice/outbound — Returns TwiML instructing Twilio to open a
-       bidirectional Media Stream WebSocket to our server.
-  WS   /webhooks/voice/stream   — Receives Twilio Media Stream events (start,
-       media, stop) and bridges audio to/from ElevenLabs Speech Engine.
-  POST /webhooks/voice/status   — Receives call status callbacks from Twilio.
+  WS   /ws  — ElevenLabs connects here when a call starts. We receive
+       transcripts and respond with Claude (Anthropic) for the booking
+       conversation.
+  POST /webhooks/voice/status — Twilio status callback (kept for graceful
+       handling of call-level events like busy/no-answer).
 """
 from __future__ import annotations
 
-import json
 import logging
 
 from fastapi import APIRouter, Request, WebSocket
 from fastapi.responses import Response
 
-from infrastructure.voice.call_session import (
-    CallContext,
-    get_call_context,
-    resolve_call,
-)
-
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/webhooks/voice", tags=["voice"])
+router = APIRouter()
 
 
-@router.api_route("/outbound", methods=["GET", "POST"])
-async def voice_outbound(request: Request) -> Response:
-    """Return TwiML that opens a bidirectional Media Stream.
+@router.websocket("/ws")
+async def speech_engine_ws(websocket: WebSocket) -> None:
+    """Handle ElevenLabs Speech Engine WebSocket connections.
 
-    Twilio fetches this when the outbound call connects.  The TwiML tells
-    Twilio to stream audio to our /webhooks/voice/stream WebSocket.
-    """
-    from config import get_settings
+    ElevenLabs connects here when a call is in progress. Each connection
+    represents one conversation. We receive user transcripts and stream
+    Claude's responses back via session.send_response().
 
-    settings = get_settings()
-    ws_url = settings.base_url_ws.rstrip("/")
-
-    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Connect>
-        <Stream url="{ws_url}/webhooks/voice/stream" />
-    </Connect>
-</Response>"""
-
-    return Response(content=twiml, media_type="application/xml")
-
-
-@router.websocket("/stream")
-async def voice_stream(websocket: WebSocket) -> None:
-    """Handle the Twilio Media Stream WebSocket.
-
-    Twilio sends JSON frames with events: connected, start, media, stop.
-    We bridge audio to ElevenLabs Speech Engine via the Conversation class
-    and TwilioAudioInterface.
+    The SDK's SpeechEngineSession natively supports FastAPI WebSockets
+    (it detects receive_text/send_text and wraps automatically).
     """
     await websocket.accept()
-    logger.info("Twilio Media Stream WebSocket connected")
 
     from config import get_settings
-    from elevenlabs import ElevenLabs
-    from elevenlabs.conversational_ai.conversation import Conversation
-
-    from infrastructure.voice.twilio_audio_interface import TwilioAudioInterface
+    from elevenlabs.speech_engine.session import SpeechEngineSession
 
     settings = get_settings()
-    audio_interface = TwilioAudioInterface(websocket)
-    conversation: Conversation | None = None
-    call_sid: str | None = None
-    call_ctx: CallContext | None = None
+
+    session = SpeechEngineSession(websocket, debug=True)
+
+    async def on_transcript(transcript: list) -> None:
+        """Called each time the user finishes a turn."""
+        import anthropic
+
+        messages = []
+        for msg in transcript:
+            role = "assistant" if msg.role == "agent" else "user"
+            messages.append({"role": role, "content": msg.content})
+
+        logger.info(
+            "Transcript (%d turns), last: %s",
+            len(messages),
+            messages[-1]["content"][:80] if messages else "",
+        )
+
+        system_prompt = _get_booking_system_prompt()
+
+        try:
+            client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+            stream = client.messages.stream(
+                model="claude-sonnet-4-20250514",
+                max_tokens=300,
+                system=system_prompt,
+                messages=messages,
+            )
+            await session.send_response(stream)
+        except Exception:
+            logger.exception("Error in on_transcript handler")
+            await session.send_response(
+                "Lo siento, ha ocurrido un error. ¿Puede repetir?"
+            )
+
+    async def on_init(conversation_id: str) -> None:
+        logger.info("Speech Engine session initialized: %s", conversation_id)
+
+    session.on("user_transcript", on_transcript)
+    session.on("init", on_init)
 
     try:
-        async for raw_message in websocket.iter_text():
-            msg = json.loads(raw_message)
-            event = msg.get("event")
-
-            if event == "connected":
-                logger.debug("Media stream connected: %s", msg)
-
-            elif event == "start":
-                start_data = msg.get("start", {})
-                call_sid = start_data.get("callSid")
-                logger.info(
-                    "Media stream started: call_sid=%s stream_sid=%s",
-                    call_sid,
-                    start_data.get("streamSid"),
-                )
-
-                # Look up call context for this call
-                if call_sid:
-                    call_ctx = get_call_context(call_sid)
-
-                # Forward start event to audio interface
-                await audio_interface.handle_twilio_message(msg)
-
-                # Start ElevenLabs conversation with Speech Engine
-                if settings.elevenlabs_api_key and settings.elevenlabs_agent_id:
-                    try:
-                        client = ElevenLabs(api_key=settings.elevenlabs_api_key)
-                        conversation = Conversation(
-                            client=client,
-                            agent_id=settings.elevenlabs_agent_id,
-                            requires_auth=True,
-                            audio_interface=audio_interface,
-                            callback_agent_response=lambda text: logger.info(
-                                "Agent said: %s", text[:100]
-                            ),
-                            callback_user_transcript=lambda text: logger.info(
-                                "User said: %s", text[:100]
-                            ),
-                        )
-                        conversation.start_session()
-                        logger.info("ElevenLabs conversation started")
-                    except Exception:
-                        logger.exception(
-                            "Failed to start ElevenLabs conversation"
-                        )
-                        conversation = None
-                else:
-                    logger.warning(
-                        "ELEVENLABS_AGENT_ID not set — audio bridge disabled"
-                    )
-
-            elif event == "media":
-                # Forward audio to ElevenLabs via the audio interface
-                await audio_interface.handle_twilio_message(msg)
-
-            elif event == "stop":
-                logger.info("Media stream stopped: call_sid=%s", call_sid)
-                break
-
+        await session.run()
     except Exception:
-        logger.exception("Error in voice stream WebSocket")
+        logger.exception("Speech Engine session error")
     finally:
-        # Clean up the ElevenLabs conversation
-        if conversation:
-            try:
-                conversation.end_session()
-                conversation.wait_for_session_end()
-                logger.info("ElevenLabs conversation ended")
-            except Exception:
-                logger.exception("Error ending conversation session")
-
-        # Resolve the call outcome if we have context
-        if call_sid and call_ctx:
-            _resolve_after_stream(call_sid, call_ctx)
-
-        logger.info("Voice stream WebSocket closed")
+        logger.info("Speech Engine session ended")
 
 
-@router.post("/status")
+@router.post("/webhooks/voice/status")
 async def voice_status(request: Request) -> Response:
-    """Handle Twilio call status callbacks.
-
-    When a call completes/fails without going through the conversation
-    (e.g. no answer, busy), we resolve the call with a failure outcome.
-    """
-    from application.ports import CallOutcome
-
+    """Handle Twilio call status callbacks."""
     form = await request.form()
     call_sid = str(form.get("CallSid", ""))
     call_status = str(form.get("CallStatus", ""))
 
     logger.info("Call status update: sid=%s status=%s", call_sid, call_status)
 
-    if call_status in ("no-answer", "busy", "failed", "canceled"):
-        ctx = get_call_context(call_sid)
-        if ctx:
-            outcome = CallOutcome(
-                doctor=ctx.doctor,
-                success=False,
-                reason=call_status,
-            )
-            resolve_call(call_sid, outcome)
-
     return Response(content="", status_code=204)
 
 
-def _resolve_after_stream(call_sid: str, call_ctx: CallContext) -> None:
-    """Resolve the call after the media stream ends.
-
-    When the stream closes normally (call hung up after conversation),
-    we treat it as a completed call. The Speech Engine conversation
-    has already run — if it detected a booking confirmation via the
-    callback_agent_response, the outcome was set. Otherwise we resolve
-    with a generic "stream_ended" reason so the caller doesn't hang.
-    """
-    from application.ports import CallOutcome
-
-    if call_ctx.outcome is not None:
-        return
-
-    outcome = CallOutcome(
-        doctor=call_ctx.doctor,
-        success=False,
-        reason="stream_ended_no_booking_detected",
+def _get_booking_system_prompt() -> str:
+    return (
+        "Eres un asistente de reservas médicas que llama a clínicas en España "
+        "para agendar citas. Hablas en español de forma clara, profesional y "
+        "cortés. Tu objetivo es:\n"
+        "1. Saludar e identificarte como asistente del paciente.\n"
+        "2. Preguntar por disponibilidad para la especialidad solicitada.\n"
+        "3. Si hay disponibilidad, confirmar fecha y hora.\n"
+        "4. Agradecer y despedirte.\n\n"
+        "Si la recepcionista dice que no hay disponibilidad, agradece "
+        "amablemente y despídete. Sé conciso y natural — estás al teléfono.\n\n"
+        "IMPORTANTE: Cuando consigas confirmar una cita, incluye en tu "
+        "última respuesta la palabra CITA_CONFIRMADA seguida de la fecha y "
+        "hora. Ejemplo: 'Perfecto, CITA_CONFIRMADA martes 27 de mayo a las "
+        "10:00. Muchas gracias.'\n\n"
+        "Si no hay disponibilidad, di SIN DISPONIBILIDAD antes de despedirte."
     )
-    resolve_call(call_sid, outcome)
