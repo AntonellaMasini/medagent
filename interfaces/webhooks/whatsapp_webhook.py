@@ -117,8 +117,7 @@ def build_whatsapp_router(
                 whatsapp.send_text,
                 phone,
                 "Do you have a preference for the doctor's gender?\n"
-                "Reply: *doctora* (female), *doctor* (male), "
-                "or *no* (no preference)",
+                'Reply: "female", "male", or "no preference"',
             )
             return _twiml()
 
