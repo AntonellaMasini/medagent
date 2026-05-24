@@ -226,11 +226,9 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
             role = "assistant" if msg.role == "agent" else "user"
             messages.append({"role": role, "content": msg.content})
 
-        logger.info(
-            "Transcript (%d turns), last: %s",
-            len(messages),
-            messages[-1]["content"][:80] if messages else "",
-        )
+        user_said = messages[-1]["content"] if messages else ""
+        logger.info("\n🎙️  RECEPTIONIST: %s", user_said)
+        logger.info("   [%d turns total]", len(messages))
 
         system_prompt = _get_booking_system_prompt(
             get_active_specialty(),
@@ -256,7 +254,7 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
                         accumulated.append(chunk)
                         yield chunk
                 full_text = "".join(accumulated)
-                logger.info("Claude response: %s", full_text[:120])
+                logger.info("\n🤖 AGENTE: %s", full_text[:200])
                 _check_booking_outcome(full_text)
 
             await session.send_response(_claude_stream())
@@ -342,10 +340,10 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
             },
         ),
         callback_agent_response=lambda resp: logger.info(
-            "Agent response: %s", resp[:120] if resp else ""
+            "\n🔊 AGENT→TWILIO: %s", resp[:200] if resp else ""
         ),
         callback_user_transcript=lambda txt: logger.info(
-            "User said: %s", txt[:120] if txt else ""
+            "\n🎙️  TWILIO→AGENT: %s", txt[:200] if txt else ""
         ),
     )
 

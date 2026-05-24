@@ -51,6 +51,9 @@ def create_app() -> FastAPI:
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s | %(message)s",
     )
+    # Silence noisy low-level loggers that drown out conversation logs
+    for noisy in ("websockets", "httpcore", "httpx", "aiosqlite", "python_multipart"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     # ---- Infrastructure ----
     db = Database(settings.database_url)
