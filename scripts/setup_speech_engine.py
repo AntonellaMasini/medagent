@@ -45,18 +45,44 @@ def main() -> None:
 
     from elevenlabs import ElevenLabs
     from elevenlabs.types.speech_engine_config import SpeechEngineConfig
+    from elevenlabs.types.tts_conversational_config_input import (
+        TtsConversationalConfigInput,
+    )
 
     client = ElevenLabs(api_key=api_key)
 
-    # --- Step 1: Create Speech Engine ---
-    print(f"Creating Speech Engine '{args.name}' with ws_url={args.ws_url}")
-    engine = client.speech_engine.create(
-        name=args.name,
-        speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
+    voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "ewn5JTa3lNPY8QVuZJi6")
+    existing_id = os.environ.get("ELEVENLABS_AGENT_ID", "")
+
+    tts_config = TtsConversationalConfigInput(
+        voice_id=voice_id,
     )
-    engine_id = engine.engine_id
-    print("\n✓ Speech Engine created!")
-    print(f"  ELEVENLABS_AGENT_ID={engine_id}")
+
+    if existing_id and existing_id.startswith("seng_"):
+        # --- Update existing Speech Engine ---
+        print(f"Updating Speech Engine '{existing_id}' with ws_url={args.ws_url}")
+        engine = client.speech_engine.update(
+            existing_id,
+            name=args.name,
+            speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
+            tts=tts_config,
+            language="es",
+        )
+        engine_id = engine.engine_id
+        print("\n✓ Speech Engine updated!")
+        print(f"  ELEVENLABS_AGENT_ID={engine_id}")
+    else:
+        # --- Create new Speech Engine ---
+        print(f"Creating Speech Engine '{args.name}' with ws_url={args.ws_url}")
+        engine = client.speech_engine.create(
+            name=args.name,
+            speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
+            tts=tts_config,
+            language="es",
+        )
+        engine_id = engine.engine_id
+        print("\n✓ Speech Engine created!")
+        print(f"  ELEVENLABS_AGENT_ID={engine_id}")
 
     # --- Step 2: Register Twilio number ---
     twilio_sid = os.environ.get("TWILIO_ACCOUNT_SID")
