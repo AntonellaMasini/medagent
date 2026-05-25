@@ -603,20 +603,23 @@ def _get_booking_system_prompt(
             f"al principio de la conversación para que la recepcionista "
             f"lo tenga en cuenta.\n"
         )
-        if insurance_id:
-            spelled_id = _spell_out_for_tts(insurance_id)
-            insurance_line += (
-                f"Si la recepcionista pide el número de asegurado o DNI/NIE, "
-                f"DELETRÉALO letra por letra y dígito por dígito: "
-                f"'{spelled_id}'. "
-                f"No digas el código de golpe — deletréalo despacio.\n"
-            )
         if patient_phone:
             spelled_phone = _spell_out_for_tts(patient_phone)
             insurance_line += (
-                f"Si la recepcionista pide un teléfono de contacto, "
-                f"di el número dígito por dígito: '{spelled_phone}'. "
-                f"No digas el número entero de golpe — dilo dígito a dígito.\n"
+                f"Si la recepcionista pide 'un número', 'un teléfono', "
+                f"'número de contacto' o simplemente 'número', "
+                f"SIEMPRE da el teléfono del paciente dígito por dígito: "
+                f"'{spelled_phone}'. "
+                f"'Número' sin más contexto = teléfono.\n"
+            )
+        if insurance_id:
+            spelled_id = _spell_out_for_tts(insurance_id)
+            insurance_line += (
+                f"SOLO si la recepcionista pide específicamente el 'número "
+                f"de asegurado', 'número de póliza', 'DNI', 'NIE' o "
+                f"'documento de identidad', deletréalo letra por letra y "
+                f"dígito por dígito: '{spelled_id}'. "
+                f"No digas el código de golpe — deletréalo despacio.\n"
             )
 
     step2 = (
