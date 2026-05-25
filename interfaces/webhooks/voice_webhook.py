@@ -209,20 +209,29 @@ def _make_openai_response(text: str) -> Response:
 async def speech_engine_ws(websocket: WebSocket) -> None:
     """Handle ElevenLabs Speech Engine WebSocket connections."""
     from config import get_settings
-    from elevenlabs import AsyncElevenLabs
+    from elevenlabs.speech_engine.resource import verify_speech_engine_jwt
+    from elevenlabs.speech_engine.session import SpeechEngineSession
 
     settings = get_settings()
 
-    # Verify the request originates from ElevenLabs before accepting.
-    el = AsyncElevenLabs(api_key=settings.elevenlabs_api_key)
-    engine = await el.speech_engine.get(settings.elevenlabs_agent_id)
-    if not engine.verify_request(dict(websocket.headers)):
-        logger.warning("Speech Engine WS request failed verification — rejecting")
+    # Verify the JWT without an HTTP round-trip to ElevenLabs.
+    auth_header = websocket.headers.get(
+        "x-elevenlabs-speech-engine-authorization", "",
+    )
+    if auth_header:
+        try:
+            verify_speech_engine_jwt(auth_header, settings.elevenlabs_api_key)
+        except ValueError:
+            logger.warning("Speech Engine JWT verification failed — rejecting")
+            await websocket.close(code=1008)
+            return
+    else:
+        logger.warning("No Speech Engine auth header — rejecting")
         await websocket.close(code=1008)
         return
 
     await websocket.accept()
-    session = engine.create_session(websocket, debug=True)
+    session = SpeechEngineSession(websocket, debug=True)
 
     async def on_transcript(transcript: list) -> None:
         import anthropic
