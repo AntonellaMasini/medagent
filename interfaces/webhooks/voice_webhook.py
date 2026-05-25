@@ -562,16 +562,19 @@ def _get_booking_system_prompt(
     insurance_id: str = "",
     patient_phone: str = "",
 ) -> str:
-    # Build the greeting line — prescriptive to avoid Claude improvising
+    # The first_message template (set in setup_speech_engine.py) already
+    # greets and states the reason for calling, so Claude must NOT repeat it.
     if patient_name:
         greeting = (
-            f"Cuando te presentes, di EXACTAMENTE: "
-            f"'Hola, buenos días. Soy el asistente de la paciente {patient_name}.'"
+            f"YA te has presentado al inicio de la llamada diciendo tu nombre "
+            f"y que llamas de parte de {patient_name}. "
+            f"NO vuelvas a presentarte ni a saludar — la recepcionista ya "
+            f"sabe quién eres y por qué llamas."
         )
     else:
         greeting = (
-            "Cuando te presentes, di: 'Hola, buenos días. Soy el asistente "
-            "de un paciente.'"
+            "YA te has presentado al inicio de la llamada. "
+            "NO vuelvas a saludar ni a presentarte."
         )
 
     # Build specialty + gender lines
@@ -656,14 +659,13 @@ def _get_booking_system_prompt(
         "Eres un asistente que llama a clínicas en España para agendar "
         "citas médicas EN NOMBRE DE UN PACIENTE. Hablas en español de "
         "forma clara, profesional y cortés. Tú eres QUIEN LLAMA.\n\n"
-        f"SALUDO OBLIGATORIO: {greeting}\n\n"
+        f"IMPORTANTE: {greeting}\n\n"
         "Pasos de la conversación:\n"
-        f"1. Preséntate con el saludo exacto de arriba.\n"
-        f"{step2}"
-        "3. Si hay disponibilidad, confirma fecha y hora.\n"
-        f"4. Da el nombre del paciente{f' ({patient_name})' if patient_name else ''} "
+        f"1. Cuando la recepcionista conteste, ve directo al grano. {step2}"
+        "2. Si hay disponibilidad, confirma fecha y hora.\n"
+        f"3. Da el nombre del paciente{f' ({patient_name})' if patient_name else ''} "
         "para que registren la cita.\n"
-        "5. Agradece y despídete.\n\n"
+        "4. Agradece y despídete.\n\n"
         "Sé conciso y natural — estás al teléfono. Responde con frases "
         "cortas, no con párrafos.\n\n"
         "RESULTADO: Cuando confirmes una cita, incluye CITA_CONFIRMADA "
