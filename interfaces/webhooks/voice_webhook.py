@@ -47,6 +47,8 @@ async def chat_completions(request: Request) -> StreamingResponse:
         get_active_specialty,
         get_busy_intervals,
         get_doctor_gender,
+        get_insurance_id,
+        get_insurer_name,
         get_max_weeks_out,
         get_patient_name,
     )
@@ -56,10 +58,13 @@ async def chat_completions(request: Request) -> StreamingResponse:
     patient_name = get_patient_name()
     max_weeks_out = get_max_weeks_out()
     doctor_gender = get_doctor_gender()
+    insurer_name = get_insurer_name()
+    insurance_id = get_insurance_id()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
     system_prompt = _get_booking_system_prompt(
-        specialty, busy_intervals, patient_name, max_weeks_out, doctor_gender
+        specialty, busy_intervals, patient_name, max_weeks_out, doctor_gender,
+        insurer_name, insurance_id,
     )
     conversation_messages = []
     for msg in messages:
@@ -217,6 +222,8 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
             get_active_specialty,
             get_busy_intervals,
             get_doctor_gender,
+            get_insurance_id,
+            get_insurer_name,
             get_max_weeks_out,
             get_patient_name,
         )
@@ -236,6 +243,8 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
             get_patient_name(),
             get_max_weeks_out(),
             get_doctor_gender(),
+            get_insurer_name(),
+            get_insurance_id(),
         )
 
         try:
@@ -482,6 +491,8 @@ def _get_booking_system_prompt(
     patient_name: str = "",
     max_weeks_out: int = 4,
     doctor_gender: str = "",
+    insurer_name: str = "",
+    insurance_id: str = "",
 ) -> str:
     # Build the greeting line — prescriptive to avoid Claude improvising
     if patient_name:
@@ -537,6 +548,29 @@ def _get_booking_system_prompt(
         f"{max_weeks_out} semanas. Si solo ofrecen fechas más lejanas, "
         f"rechaza amablemente y di SIN_DISPONIBILIDAD.\n"
     )
+
+    insurance_line = ""
+    if insurer_name:
+        insurance_line = (
+            f"\n\n*** SEGURO MÉDICO (OBLIGATORIO) ***\n"
+            f"El paciente tiene seguro privado con {insurer_name}. "
+            f"Menciona que el paciente es asegurado de {insurer_name} "
+            f"al principio de la conversación para que la recepcionista "
+            f"lo tenga en cuenta.\n"
+        )
+        if insurance_id:
+            insurance_line += (
+                f"Si la recepcionista pide el número de asegurado o DNI/NIE, "
+                f"di: '{insurance_id}'.\n"
+            )
+
+    step2 = (
+        f"2. Menciona que el paciente tiene seguro con {insurer_name}. "
+        f"Pide disponibilidad. {specialty_line}"
+        if insurer_name
+        else f"2. Pide disponibilidad. {specialty_line}"
+    )
+
     return (
         "Eres un asistente que llama a clínicas en España para agendar "
         "citas médicas EN NOMBRE DE UN PACIENTE. Hablas en español de "
@@ -544,7 +578,7 @@ def _get_booking_system_prompt(
         f"SALUDO OBLIGATORIO: {greeting}\n\n"
         "Pasos de la conversación:\n"
         f"1. Preséntate con el saludo exacto de arriba.\n"
-        f"2. Pide disponibilidad. {specialty_line}"
+        f"{step2}"
         "3. Si hay disponibilidad, confirma fecha y hora.\n"
         f"4. Da el nombre del paciente{f' ({patient_name})' if patient_name else ''} "
         "para que registren la cita.\n"
@@ -555,6 +589,7 @@ def _get_booking_system_prompt(
         "seguido de la fecha y hora. Ejemplo: 'Perfecto, CITA_CONFIRMADA "
         "martes 27 de mayo a las 10:00. Muchas gracias.'\n"
         "Si no hay disponibilidad, di SIN_DISPONIBILIDAD antes de despedirte."
+        + insurance_line
         + busy_line
         + weeks_line
         + gender_line

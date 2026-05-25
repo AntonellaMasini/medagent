@@ -47,6 +47,8 @@ _active_patient_name: str = ""
 _active_busy_intervals: list[str] = []
 _active_max_weeks_out: int = 4
 _active_doctor_gender: str = ""
+_active_insurer_name: str = ""
+_active_insurance_id: str = ""
 
 
 def set_active_specialty(conversation_id: str, specialty: str) -> None:
@@ -92,6 +94,24 @@ def set_doctor_gender(gender: str) -> None:
 
 def get_doctor_gender() -> str:
     return _active_doctor_gender
+
+
+def set_insurer_name(name: str) -> None:
+    global _active_insurer_name
+    _active_insurer_name = name
+
+
+def get_insurer_name() -> str:
+    return _active_insurer_name
+
+
+def set_insurance_id(insurance_id: str) -> None:
+    global _active_insurance_id
+    _active_insurance_id = insurance_id
+
+
+def get_insurance_id() -> str:
+    return _active_insurance_id
 
 
 def register_call(call_id: str, ctx: CallContext) -> None:
