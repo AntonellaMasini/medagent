@@ -342,11 +342,24 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
         ConversationInitiationData,
     )
 
-    from infrastructure.voice.call_session import get_patient_name
+    from infrastructure.voice.call_session import (
+        get_active_specialty,
+        get_doctor_gender,
+        get_patient_name,
+    )
     from infrastructure.voice.twilio_audio_interface import TwilioAudioInterface
 
     settings = get_settings()
     iface = TwilioAudioInterface()
+
+    raw_specialty = _gendered_specialty(
+        get_active_specialty(), get_doctor_gender(),
+    )
+    if raw_specialty:
+        article = "una" if raw_specialty.endswith("a") else "un"
+        specialty_text = f"{article} {raw_specialty}"
+    else:
+        specialty_text = "un especialista"
 
     el_client = ElevenLabs(api_key=settings.elevenlabs_api_key)
     conversation = Conversation(
@@ -357,6 +370,7 @@ async def media_stream_bridge(websocket: WebSocket) -> None:
         config=ConversationInitiationData(
             dynamic_variables={
                 "patient_name": get_patient_name() or "el paciente",
+                "specialty_text": specialty_text,
             },
         ),
         callback_agent_response=lambda resp: logger.info(

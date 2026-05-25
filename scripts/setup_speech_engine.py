@@ -62,11 +62,13 @@ def main() -> None:
     )
 
     # First message spoken by the bot when the call connects.
-    # Short so it finishes before the receptionist interrupts.
-    # Uses {{patient_name}} dynamic variable filled at call time.
+    # Short but states purpose upfront so the receptionist knows context.
+    # Dynamic variables {{patient_name}} and {{specialty_text}} are filled
+    # at call time in the /media-stream handler.
     conv_config = ConversationConfigInput(
         first_message=(
-            "Hola, buenos días. Llamo de parte de {{patient_name}}."
+            "Hola, buenos días. Llamo de parte de {{patient_name}}. "
+            "Quería consultar si tienen disponibilidad con {{specialty_text}}."
         ),
     )
 
