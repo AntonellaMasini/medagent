@@ -488,6 +488,39 @@ _GENDERED_SPECIALTIES: dict[str, tuple[str, str]] = {
 }
 
 
+_LETTER_NAMES: dict[str, str] = {
+    "A": "a", "B": "be", "C": "ce", "D": "de", "E": "e",
+    "F": "efe", "G": "ge", "H": "hache", "I": "i", "J": "jota",
+    "K": "ka", "L": "ele", "M": "eme", "N": "ene", "O": "o",
+    "P": "pe", "Q": "cu", "R": "erre", "S": "ese", "T": "te",
+    "U": "u", "V": "uve", "W": "uve doble", "X": "equis",
+    "Y": "i griega", "Z": "zeta",
+}
+
+
+def _spell_out_for_tts(value: str) -> str:
+    """Convert an ID or phone number into a TTS-friendly spelled-out form.
+
+    Examples:
+      "Z3512875K01" → "zeta, tres, cinco, uno, dos, ocho, siete, cinco, ka, cero, uno"
+      "+34612345678" → "tres, cuatro, seis, uno, dos, tres, cuatro, cinco, seis, siete, ocho"
+    """
+    parts: list[str] = []
+    for ch in value:
+        upper = ch.upper()
+        if upper in _LETTER_NAMES:
+            parts.append(_LETTER_NAMES[upper])
+        elif ch.isdigit():
+            digit_names = {
+                "0": "cero", "1": "uno", "2": "dos", "3": "tres",
+                "4": "cuatro", "5": "cinco", "6": "seis", "7": "siete",
+                "8": "ocho", "9": "nueve",
+            }
+            parts.append(digit_names[ch])
+        # Skip +, -, spaces, etc.
+    return ", ".join(parts)
+
+
 def _gendered_specialty(specialty: str, gender: str) -> str:
     """Return the gendered form of a specialty name for the voice prompt."""
     pair = _GENDERED_SPECIALTIES.get(specialty.upper())
@@ -571,14 +604,19 @@ def _get_booking_system_prompt(
             f"lo tenga en cuenta.\n"
         )
         if insurance_id:
+            spelled_id = _spell_out_for_tts(insurance_id)
             insurance_line += (
                 f"Si la recepcionista pide el número de asegurado o DNI/NIE, "
-                f"di: '{insurance_id}'.\n"
+                f"DELETRÉALO letra por letra y dígito por dígito: "
+                f"'{spelled_id}'. "
+                f"No digas el código de golpe — deletréalo despacio.\n"
             )
         if patient_phone:
+            spelled_phone = _spell_out_for_tts(patient_phone)
             insurance_line += (
                 f"Si la recepcionista pide un teléfono de contacto, "
-                f"di: '{patient_phone}'.\n"
+                f"di el número dígito por dígito: '{spelled_phone}'. "
+                f"No digas el número entero de golpe — dilo dígito a dígito.\n"
             )
 
     step2 = (
