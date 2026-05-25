@@ -1,14 +1,12 @@
 """Outbound voice caller using ElevenLabs Speech Engine + Twilio.
 
 Architecture:
-  1. We place an outbound call via ElevenLabs outbound_call() API.
-  2. ElevenLabs natively handles the Twilio audio bridge (STT/TTS).
-  3. ElevenLabs connects to our /ws endpoint for LLM logic.
-  4. Our Speech Engine handler runs Claude (Anthropic) to conduct the
-     appointment-booking conversation in Spanish.
-
-The ElevenLabs Speech Engine handles STT, TTS, turn-taking, and interruption
-detection. We bring our own LLM (Claude Sonnet) for conversation logic.
+  1. register_call() tells ElevenLabs about the upcoming call → TwiML.
+  2. Twilio REST API dials the clinic with that TwiML.
+  3. Twilio streams audio to ElevenLabs via <Connect><Stream>.
+  4. ElevenLabs Speech Engine handles STT/TTS/turn-taking.
+  5. ElevenLabs connects to our /v1/chat/completions endpoint where
+     Claude (Anthropic) conducts the booking conversation in Spanish.
 """
 from __future__ import annotations
 
@@ -39,6 +37,10 @@ class VoiceCallerConfig:
     elevenlabs_agent_id: str
     elevenlabs_phone_number_id: str
     anthropic_api_key: str
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_voice_number: str = ""
+    base_url: str = ""
     demo_mode: bool = False
     demo_receptionist_number: str = ""
 

@@ -44,19 +44,71 @@ def main() -> None:
         sys.exit(1)
 
     from elevenlabs import ElevenLabs
+    from elevenlabs.types.base_turn_config import BaseTurnConfig
+    from elevenlabs.types.conversation_config_input import ConversationConfigInput
     from elevenlabs.types.speech_engine_config import SpeechEngineConfig
+    from elevenlabs.types.tts_conversational_config_input import (
+        TtsConversationalConfigInput,
+    )
 
     client = ElevenLabs(api_key=api_key)
 
-    # --- Step 1: Create Speech Engine ---
-    print(f"Creating Speech Engine '{args.name}' with ws_url={args.ws_url}")
-    engine = client.speech_engine.create(
-        name=args.name,
-        speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
+    voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "ewn5JTa3lNPY8QVuZJi6")
+    existing_id = os.environ.get("ELEVENLABS_AGENT_ID", "")
+
+    tts_config = TtsConversationalConfigInput(
+        voice_id=voice_id,
+        model_id="eleven_flash_v2_5",
     )
-    engine_id = engine.engine_id
-    print("\n✓ Speech Engine created!")
-    print(f"  ELEVENLABS_AGENT_ID={engine_id}")
+
+    # First message spoken by the bot when the call connects.
+    # Short but states purpose upfront so the receptionist knows context.
+    # Dynamic variables {{patient_name}} and {{specialty_text}} are filled
+    # at call time in the /media-stream handler.
+    conv_config = ConversationConfigInput(
+        first_message=(
+            "Hola, buenos días. Llamo de parte de {{patient_name}}. "
+            "Quería consultar si tienen disponibilidad con {{specialty_text}}."
+        ),
+    )
+
+    # Turn detection: 'patient' = less eager to interrupt, reducing
+    # mid-sentence cut-offs. speculative_turn pre-generates LLM responses
+    # during silence to reduce perceived latency.
+    turn_config = BaseTurnConfig(
+        turn_eagerness="patient",
+        speculative_turn=True,
+    )
+
+    if existing_id and existing_id.startswith("seng_"):
+        # --- Update existing Speech Engine ---
+        print(f"Updating Speech Engine '{existing_id}' with ws_url={args.ws_url}")
+        engine = client.speech_engine.update(
+            existing_id,
+            name=args.name,
+            speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
+            tts=tts_config,
+            turn=turn_config,
+            conversation=conv_config,
+            language="es",
+        )
+        engine_id = engine.engine_id
+        print("\n✓ Speech Engine updated!")
+        print(f"  ELEVENLABS_AGENT_ID={engine_id}")
+    else:
+        # --- Create new Speech Engine ---
+        print(f"Creating Speech Engine '{args.name}' with ws_url={args.ws_url}")
+        engine = client.speech_engine.create(
+            name=args.name,
+            speech_engine=SpeechEngineConfig(ws_url=args.ws_url),
+            tts=tts_config,
+            turn=turn_config,
+            conversation=conv_config,
+            language="es",
+        )
+        engine_id = engine.engine_id
+        print("\n✓ Speech Engine created!")
+        print(f"  ELEVENLABS_AGENT_ID={engine_id}")
 
     # --- Step 2: Register Twilio number ---
     twilio_sid = os.environ.get("TWILIO_ACCOUNT_SID")

@@ -51,6 +51,12 @@ def create_app() -> FastAPI:
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s | %(message)s",
     )
+    # Silence noisy low-level loggers that drown out conversation logs
+    for noisy in (
+        "websockets", "httpcore", "httpx", "aiosqlite",
+        "python_multipart", "anthropic",
+    ):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     # ---- Infrastructure ----
     db = Database(settings.database_url)
@@ -95,6 +101,10 @@ def create_app() -> FastAPI:
                 elevenlabs_agent_id=settings.elevenlabs_agent_id,
                 elevenlabs_phone_number_id=settings.elevenlabs_phone_number_id,
                 anthropic_api_key=settings.anthropic_api_key,
+                twilio_account_sid=settings.twilio_account_sid,
+                twilio_auth_token=settings.twilio_auth_token,
+                twilio_voice_number=settings.twilio_voice_number,
+                base_url=settings.base_url,
                 demo_mode=settings.demo_mode,
                 demo_receptionist_number=settings.demo_receptionist_number,
             )
