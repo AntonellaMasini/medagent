@@ -49,6 +49,7 @@ _active_max_weeks_out: int = 4
 _active_doctor_gender: str = ""
 _active_insurer_name: str = ""
 _active_insurance_id: str = ""
+_active_patient_phone: str = ""
 
 
 def set_active_specialty(conversation_id: str, specialty: str) -> None:
@@ -112,6 +113,15 @@ def set_insurance_id(insurance_id: str) -> None:
 
 def get_insurance_id() -> str:
     return _active_insurance_id
+
+
+def set_patient_phone(phone: str) -> None:
+    global _active_patient_phone
+    _active_patient_phone = phone
+
+
+def get_patient_phone() -> str:
+    return _active_patient_phone
 
 
 def register_call(call_id: str, ctx: CallContext) -> None:

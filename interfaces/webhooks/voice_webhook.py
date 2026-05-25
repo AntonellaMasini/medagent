@@ -51,6 +51,7 @@ async def chat_completions(request: Request) -> StreamingResponse:
         get_insurer_name,
         get_max_weeks_out,
         get_patient_name,
+        get_patient_phone,
     )
 
     specialty = get_active_specialty()
@@ -60,11 +61,12 @@ async def chat_completions(request: Request) -> StreamingResponse:
     doctor_gender = get_doctor_gender()
     insurer_name = get_insurer_name()
     insurance_id = get_insurance_id()
+    patient_phone = get_patient_phone()
 
     # Always use our booking system prompt (ignore ElevenLabs' generic one)
     system_prompt = _get_booking_system_prompt(
         specialty, busy_intervals, patient_name, max_weeks_out, doctor_gender,
-        insurer_name, insurance_id,
+        insurer_name, insurance_id, patient_phone,
     )
     conversation_messages = []
     for msg in messages:
@@ -226,6 +228,7 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
             get_insurer_name,
             get_max_weeks_out,
             get_patient_name,
+            get_patient_phone,
         )
 
         messages = []
@@ -245,6 +248,7 @@ async def speech_engine_ws(websocket: WebSocket) -> None:
             get_doctor_gender(),
             get_insurer_name(),
             get_insurance_id(),
+            get_patient_phone(),
         )
 
         try:
@@ -493,6 +497,7 @@ def _get_booking_system_prompt(
     doctor_gender: str = "",
     insurer_name: str = "",
     insurance_id: str = "",
+    patient_phone: str = "",
 ) -> str:
     # Build the greeting line — prescriptive to avoid Claude improvising
     if patient_name:
@@ -562,6 +567,11 @@ def _get_booking_system_prompt(
             insurance_line += (
                 f"Si la recepcionista pide el número de asegurado o DNI/NIE, "
                 f"di: '{insurance_id}'.\n"
+            )
+        if patient_phone:
+            insurance_line += (
+                f"Si la recepcionista pide un teléfono de contacto, "
+                f"di: '{patient_phone}'.\n"
             )
 
     step2 = (

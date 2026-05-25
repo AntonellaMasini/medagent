@@ -114,6 +114,7 @@ class BookAppointmentUseCase:
             set_insurer_name,
             set_max_weeks_out,
             set_patient_name,
+            set_patient_phone,
         )
 
         set_patient_name(user.name)
@@ -121,6 +122,7 @@ class BookAppointmentUseCase:
         set_doctor_gender(request.gender_preference or "")
         set_insurer_name(user.insurer.value.capitalize())
         set_insurance_id(user.insurer_credentials.username)
+        set_patient_phone(user.phone)
         if busy_intervals:
             logger.info(
                 "User has %d busy intervals — voice caller will avoid conflicts",
