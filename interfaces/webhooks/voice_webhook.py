@@ -584,17 +584,18 @@ def _get_booking_system_prompt(
         article = "una" if doctor_gender == "female" else "un"
         gender_word = "mujer" if doctor_gender == "female" else "hombre"
         specialty_line = (
-            f"Pide cita con {article} {gendered}. "
-            f"SIEMPRE usa la forma '{article} {gendered}' — nunca digas "
-            f"solo '{specialty.lower()}'.\n"
+            f"Pide cita con {article} {gendered} {gender_word}. "
+            f"SIEMPRE di '{article} {gendered} {gender_word}' — "
+            f"nunca digas solo '{specialty.lower()}' sin especificar "
+            f"el género.\n"
         )
         gender_line = (
             f"\n\n*** PREFERENCIA DE GÉNERO (OBLIGATORIO) ***\n"
             f"El paciente quiere un doctor que sea {gender_word}. "
-            f"Debes decir explícitamente a la recepcionista que buscas "
-            f"{article} {gendered}. Si la recepcionista ofrece un doctor "
+            f"Debes decir explícitamente '{article} {gendered} {gender_word}' "
+            f"a la recepcionista. Si la recepcionista ofrece un doctor "
             f"del género contrario, rechaza amablemente y pide "
-            f"específicamente {article} {gendered}. "
+            f"específicamente {article} {gendered} {gender_word}. "
             f"Al confirmar la cita, verifica que el doctor sea {gender_word}.\n"
         )
     elif specialty:
