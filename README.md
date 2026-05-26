@@ -24,7 +24,7 @@ WhatsApp message → Insurance scraper → Calendar check → Voice calls → Ap
   <img src="docs/images/whatsapp-booking.jpg" alt="WhatsApp booking flow — request, gender preference, search, and confirmed appointment" width="300">
 </p>
 
-> One message → OTP verification → gender preference → doctor found → appointment confirmed with address and phone.
+> Request → OTP verification → gender preference → doctor found → appointment confirmed with doctor, address, and phone.
 
 ### Onboarding (One-Time Setup)
 
@@ -49,6 +49,22 @@ The agent makes **real phone calls** to clinic receptionists, speaking natural S
 - Rejects time slots that conflict with your calendar
 - Rejects wrong-gender doctors and asks specifically for the right one
 - Confirms appointment details before hanging up
+
+<p align="center">
+  <img src="docs/images/voice-call-logs.png" alt="Terminal logs showing agent-receptionist negotiation" width="700">
+</p>
+
+> Real call negotiation: the agent rejects a conflicting slot (Wed 27 at 3:30pm), accepts Fri 29 at 10am, and confirms it's with a female psychologist.
+
+### Google Calendar Integration
+
+Confirmed appointments are automatically added to your Google Calendar:
+
+<p align="center">
+  <img src="docs/images/google-calendar-event.png" alt="Google Calendar event created by MedAgent" width="400">
+</p>
+
+> The event includes doctor name, clinic address, phone number, and reminders.
 
 ## Architecture
 
