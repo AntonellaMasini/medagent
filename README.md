@@ -6,6 +6,8 @@
 
 **AI agent that books doctor appointments in Spain — so you don't have to.**
 
+> **Status: Beta** — MedAgent is a working prototype built for [ElevenHacks 2026](https://hacks.elevenlabs.io/hackathons/9). The core pipeline works end-to-end but is currently in beta testing.
+
 Private healthcare in Spain means calling clinic after clinic: no online booking, no centralized system, just phone tag. MedAgent handles the entire pipeline autonomously — from a single WhatsApp message to a confirmed appointment in your calendar.
 
 ## How It Works
