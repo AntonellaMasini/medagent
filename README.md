@@ -1,5 +1,9 @@
 # MedAgent
 
+<p align="center">
+  <img src="docs/images/cover.png" alt="MedAgent — Your AI calls the clinic. You just show up." width="700">
+</p>
+
 **AI agent that books doctor appointments in Spain — so you don't have to.**
 
 Private healthcare in Spain means calling clinic after clinic: no online booking, no centralized system, just phone tag. MedAgent handles the entire pipeline autonomously — from a single WhatsApp message to a confirmed appointment in your calendar.
@@ -65,6 +69,16 @@ Confirmed appointments are automatically added to your Google Calendar:
 </p>
 
 > The event includes doctor name, clinic address, phone number, and reminders.
+
+## Built for Expats
+
+Don't speak Spanish? That's the point. MedAgent handles the phone call in fluent Spanish so you don't have to. You interact entirely in English via WhatsApp — the agent takes care of the rest:
+
+- **English in, Spanish out** — send your request in English, the agent calls the clinic in Spanish
+- **No phone anxiety** — no need to rehearse medical vocabulary or struggle through a call
+- **Works with your insurance** — logs into your Cigna account and finds covered doctors, just like you would
+
+If you've ever tried booking a doctor in Spain without speaking the language, you know this is the hardest part. MedAgent removes it entirely.
 
 ## Architecture
 
