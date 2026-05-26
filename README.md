@@ -124,6 +124,16 @@ interfaces/  → application/  → domain/
 | Backend | FastAPI + SQLite + Alembic |
 | Package manager | uv |
 
+## Security
+
+MedAgent handles sensitive data (insurance credentials, medical appointments) and is designed with security as a core concern:
+
+- **Magic link for credentials** — Insurance login details (NIE + password) are never collected through WhatsApp. Instead, the bot sends a one-time HTTPS link with a random token (10-minute TTL). The user submits credentials through a web form served over TLS. Tokens are single-use and expire after submission.
+- **Fernet encryption at rest** — All insurance credentials and OAuth tokens are encrypted with [Fernet](https://cryptography.io/en/latest/fernet/) (AES-128-CBC + HMAC-SHA256) before being stored in the database. The encryption key (`SECRET_KEY`) is kept in environment variables, never in code.
+- **OTP relay without storage** — When Cigna sends an SMS verification code, the user forwards it via WhatsApp. The code is passed directly to the active Playwright session and never persisted to disk or database.
+- **JWT verification on WebSocket** — The Speech Engine `/ws` endpoint verifies ElevenLabs' JWT token (`X-Elevenlabs-Speech-Engine-Authorization` header) before accepting connections, preventing unauthorized access to the voice handler.
+- **No credential logging** — Passwords, tokens, and insurance IDs are excluded from all log output.
+
 ## Setup
 
 ### Prerequisites
