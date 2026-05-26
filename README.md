@@ -1,21 +1,86 @@
 # MedAgent
 
-WhatsApp-driven AI agent that books private health insurance appointments in Spain.
-User sends *"book me a psychologist"* → agent logs into the insurer's portal, finds nearby doctors, calls clinics until a slot is confirmed, and replies with the booking.
+**AI agent that books doctor appointments in Spain — so you don't have to.**
 
-First insurer adapter: **Cigna Spain**.
+Private healthcare in Spain means calling clinic after clinic: no online booking, no centralized system, just phone tag. MedAgent handles the entire pipeline autonomously — from a single WhatsApp message to a confirmed appointment in your calendar.
 
-## Status
+## How It Works
 
-MVP scaffold. WhatsApp webhook + Cigna scraper are the first runnable pieces; voice calling currently stubbed.
+```
+WhatsApp message → Insurance scraper → Calendar check → Voice calls → Appointment booked
+```
 
-## Stack
+1. **You text WhatsApp** with what you need (e.g. "I need a psychologist")
+2. **MedAgent asks your preference** — doctor gender (female/male/any)
+3. **Logs into your insurance** (Cigna Spain) and finds covered doctors near you
+4. **Checks your Google Calendar** for scheduling conflicts
+5. **Calls each clinic** in natural Spanish using ElevenLabs Speech Engine
+6. **Negotiates mid-call** — rejects conflicting slots, enforces gender preference, tries alternatives
+7. **Confirms the booking** — adds it to your calendar and sends a WhatsApp confirmation
 
-Python 3.11+ · FastAPI · Playwright · Twilio (WhatsApp + Voice) · SQLite (will become Postgres) · uv for dep management.
+### Booking in Action
+
+<p align="center">
+  <img src="docs/images/whatsapp-booking.jpg" alt="WhatsApp booking flow — request, gender preference, search, and confirmed appointment" width="300">
+</p>
+
+> One message → OTP verification → gender preference → doctor found → appointment confirmed with address and phone.
+
+### Onboarding (One-Time Setup)
+
+New users go through a quick WhatsApp onboarding before their first booking:
+
+<p align="center">
+  <img src="docs/images/whatsapp-onboarding-1.jpg" alt="WhatsApp onboarding — name, address, insurer, preferences" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/images/whatsapp-onboarding-2.png" alt="WhatsApp onboarding — secure credentials link and confirmation" width="300">
+</p>
+
+> Name → address → insurer → time preference → secure credentials link → done.
+> Insurance credentials are encrypted at rest and never logged.
+
+## The Voice Call
+
+The agent makes **real phone calls** to clinic receptionists, speaking natural Spanish. It handles the full negotiation:
+
+- Introduces itself and states the reason for calling
+- Mentions insurance coverage (Cigna) upfront
+- Provides patient phone or insurance number when asked (spelled out digit by digit)
+- Rejects time slots that conflict with your calendar
+- Rejects wrong-gender doctors and asks specifically for the right one
+- Confirms appointment details before hanging up
 
 ## Architecture
 
-Domain-Driven Design with strict layer dependencies (inward-only):
+```
+                     ┌──────────────────────────────────────┐
+                     │           ElevenLabs Servers          │
+                     │   STT · TTS · Turn-taking · WebSocket │
+                     └────────┬───────────────┬─────────────┘
+                              │               │
+                         audio│          transcript
+                              │               │
+┌─────────┐  call    ┌───────▼───────┐  ┌────▼────────────┐
+│  Twilio  │◄────────│  /media-stream │  │   /ws endpoint  │
+│ (phone)  │────────►│  audio bridge  │  │  Claude (LLM)   │
+└─────────┘  audio   └───────────────┘  └─────────────────┘
+                              │               │
+                              └───────┬───────┘
+                                      │
+                              ┌───────▼───────┐
+                              │   FastAPI      │
+                              │   Server       │
+                              ├───────────────┤
+                              │ Cigna Scraper  │
+                              │ Google Calendar│
+                              │ WhatsApp Bot   │
+                              │ Orchestrator   │
+                              └───────────────┘
+```
+
+**ElevenLabs Speech Engine** handles the voice layer — STT, TTS, turn-taking, and interruption detection. Our server provides the LLM logic via Claude through the `/ws` WebSocket endpoint. **Twilio** places the actual phone call and bridges audio via `/media-stream`.
+
+### Code Structure (Domain-Driven Design)
 
 ```
 interfaces/  → application/  → domain/
@@ -23,72 +88,127 @@ interfaces/  → application/  → domain/
             infrastructure/  (implements domain ports)
 ```
 
-- `domain/` — entities, value objects, repository interfaces. Pure Python.
-- `application/` — use cases. Orchestrates domain via abstract ports.
-- `infrastructure/` — Playwright, Twilio, SQLite, Google APIs.
-- `interfaces/` — FastAPI routes and webhooks.
+| Layer | What lives here |
+|-------|----------------|
+| `domain/` | Entities, value objects (`Specialty`, `Doctor`), repository interfaces. Pure Python. |
+| `application/` | Use cases (`book_appointment`, `intent_parser`). Orchestrates via abstract ports. |
+| `infrastructure/` | Cigna scraper, Twilio, ElevenLabs, Google Calendar, SQLite persistence. |
+| `interfaces/` | FastAPI webhooks (WhatsApp, voice, Speech Engine `/ws`). |
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Voice (STT/TTS/turn-taking) | [ElevenLabs Speech Engine](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-engine/python-sdk-reference) |
+| LLM (conversation brain) | Claude (Anthropic) |
+| Phone calls | Twilio Programmable Voice |
+| Messaging | Twilio WhatsApp Sandbox |
+| Insurance scraper | Playwright + Cigna Spain API |
+| Calendar | Google Calendar API (OAuth2) |
+| Backend | FastAPI + SQLite + Alembic |
+| Package manager | uv |
 
 ## Setup
 
+### Prerequisites
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) package manager
+- Twilio account (with WhatsApp sandbox + voice number)
+- ElevenLabs API key
+- Anthropic API key
+- Google Cloud project (for Calendar OAuth2)
+- ngrok (for local development)
+
+### Install
+
 ```bash
-# Install deps + Playwright browser (one-time)
+# Install dependencies + Playwright browser
 make install
 
-# Configure
+# Configure environment
 cp .env.example .env
-# fill in Twilio creds, generate SECRET_KEY:
+# Generate encryption key:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Fill in all API keys in .env
 ```
 
-## Running locally
+### Set Up ElevenLabs Speech Engine
+
+```bash
+# Creates the Speech Engine agent + registers your Twilio number
+uv run python scripts/setup_speech_engine.py --ws-url wss://YOUR-NGROK-URL.ngrok-free.dev/ws
+# Copy the printed ELEVENLABS_AGENT_ID and ELEVENLABS_PHONE_NUMBER_ID to .env
+```
+
+### Set Up Google Calendar
+
+1. Create OAuth 2.0 credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Enable the Google Calendar API
+3. Add redirect URI: `<your-BASE_URL>/auth/google/callback`
+4. Fill `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` in `.env`
+5. After starting the server, authorize via WhatsApp (the bot sends an auth link on first use)
+
+## Running Locally
 
 ```bash
 make run
 ```
 
-That starts ngrok, writes the new public URL into `.env` as `BASE_URL`, and
-starts uvicorn with `--reload`. The only manual step left is **pasting the
-URL it prints into Twilio's sandbox webhook field** (Twilio sandbox config
-can't be set programmatically — paid numbers can).
+This starts ngrok, writes the tunnel URL into `.env` as `BASE_URL`, and starts uvicorn with `--reload`. The only manual step is **pasting the printed URL into Twilio's WhatsApp sandbox webhook field**.
 
-`make stop` kills any leftover ngrok / uvicorn if a previous run exited
-messily. `make logs` tails the ngrok log.
+```bash
+make stop     # Kill leftover processes
+make logs     # Tail ngrok logs
+```
 
-If you'd rather run things by hand:
+Manual alternative:
 
 ```bash
 uv run uvicorn main:app --reload   # terminal 1
-ngrok http 8000                    # terminal 2 — then update .env BASE_URL manually
+ngrok http 8000                    # terminal 2 — update BASE_URL in .env
 ```
 
-## Database migrations
+### Demo Mode
 
-Alembic owns the schema. The FastAPI lifespan runs `alembic upgrade head` on boot for dev convenience; in production, run it as a deploy step and drop the lifespan call.
+To test against your own phone instead of real clinics:
 
 ```bash
-# Apply pending migrations manually
-uv run alembic upgrade head
-
-# After changing a SQLAlchemy model in infrastructure/persistence/database.py:
-uv run alembic revision --autogenerate -m "what changed"
-# Review the generated file in alembic/versions/ before committing.
-
-# Roll back the last migration
-uv run alembic downgrade -1
+# In .env:
+DEMO_MODE=true
+DEMO_RECEPTIONIST_NUMBER=+34612345678   # Your phone number
 ```
 
-Then expose with `ngrok http 8000` and point your Twilio WhatsApp sandbox webhook at `https://<ngrok-id>.ngrok-free.app/webhooks/whatsapp`.
+## Database
 
-## Layout
+SQLite for development. Alembic manages migrations. The FastAPI lifespan runs `alembic upgrade head` on boot.
 
-```
-main.py                  # FastAPI factory + DI container
-config.py                # pydantic-settings env config
-
-domain/                  # entities, value objects, repository ABCs
-application/             # use cases + outbound ports
-infrastructure/          # scrapers, voice, messaging, persistence, external APIs
-interfaces/              # webhooks + HTTP API
+```bash
+uv run alembic upgrade head                              # Apply pending
+uv run alembic revision --autogenerate -m "description"  # Generate migration
+uv run alembic downgrade -1                              # Roll back
 ```
 
-See `medagent_project_brief.md` for the full spec.
+## Testing
+
+```bash
+uv run pytest -q          # Run all tests
+uv run ruff check .       # Lint
+```
+
+## Supported Insurers
+
+| Insurer | Status |
+|---------|--------|
+| Cigna Spain | Fully supported |
+| Adeslas | Planned (#8) |
+
+The scraper architecture uses **browser for auth, API for actions** — Playwright handles the login flow (NIE/NIF + password + SMS OTP via Okta), then all data fetches go through Cigna's internal JSON API. See `CLAUDE.md` for the full endpoint chain.
+
+## License
+
+Open source. See [LICENSE](LICENSE) for details.
+
+---
+
+*Built for [ElevenHacks](https://elevenlabs.io/hackathon) 2026. One WhatsApp message. Fully autonomous booking.*
