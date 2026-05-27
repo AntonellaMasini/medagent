@@ -8,6 +8,14 @@
 
 > **Status: Beta** — MedAgent is a working prototype built for [ElevenHacks 2026](https://hacks.elevenlabs.io/hackathons/9). The core pipeline works end-to-end but is currently in beta testing.
 
+<p align="center">
+  <a href="https://youtube.com/shorts/NcMQcYY42xg">
+    <img src="https://img.youtube.com/vi/NcMQcYY42xg/maxresdefault.jpg" alt="Watch MedAgent demo" width="500">
+  </a>
+  <br>
+  <strong>▶️ Watch the demo</strong> · <a href="https://medagent.tech">medagent.tech</a>
+</p>
+
 Private healthcare in Spain means calling clinic after clinic: no online booking, no centralized system, just phone tag. MedAgent handles the entire pipeline autonomously — from a single WhatsApp message to a confirmed appointment in your calendar.
 
 ## How It Works
