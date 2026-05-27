@@ -13,7 +13,7 @@
     <img src="https://img.youtube.com/vi/NcMQcYY42xg/maxresdefault.jpg" alt="Watch MedAgent demo" width="500">
   </a>
   <br>
-  <strong>▶️ Watch the demo</strong> · <a href="https://medagent-landing-xletqxdn.devinapps.com">medagent.tech</a>
+  <strong>▶️ Watch the demo</strong> · <a href="http://medagent.tech">medagent.tech</a>
 </p>
 
 Private healthcare in Spain means calling clinic after clinic: no online booking, no centralized system, just phone tag. MedAgent handles the entire pipeline autonomously — from a single WhatsApp message to a confirmed appointment in your calendar.
